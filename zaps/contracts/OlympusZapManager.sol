@@ -1,39 +1,70 @@
 // SPDX-License-Identifier: WTFPL
 pragma solidity ^0.8.0;
 
-import "./interfaces/IOlympusZap.sol";
+import "./interfaces/IBondDepository.sol";
+
 import "./libraries/Ownable.sol";
 
 contract OlympusZapManager is Ownable {
 
-    IOlympusZap public OlympusZap;
 
-    constructor( IOlympusZap _olympusZap ) {
-        OlympusZap = _olympusZap;
+    /////////////// storage ///////////////
+
+    address public staking = 0xFd31c7d00Ca47653c6Ce64Af53c1571f9C36566a;
+
+    address public constant OHM = 0x383518188C0C6d7730D91b2c03a03C837814a899;
+
+    address public sOHM = 0x04F2694C8fcee23e8Fd0dfEA1d4f5Bb8c352111F;
+
+    address public wsOHM = 0xCa76543Cf381ebBB277bE79574059e32108e3E65;
+
+    // IE DAI => DAI bond depo
+    mapping(address => address) public principalToDepository;
+
+    ///////////// public logic ////////////
+
+    function deposit(
+        address _principal,
+        uint _amount,
+        uint _maxBondPrice
+    ) external returns ( uint ) {
+        IBondDepository depository = IBondDepository( principalToDepository[ _principal ] );
+        // make sure market exists for given principal/toToken
+        require( principalToDepository[ _principal ] != address(0), "bonding market doesn't exist");
+        // buy bond on the behalf of user
+        depository.deposit( _amount, _maxBondPrice, msg.sender );
+        // return OHM payout for the given bond
+        return depository.payoutFor( _amount );
     }
 
+    ///////////// policy only /////////////
+
     function update_Staking(
-        IStaking _staking
+        address _staking
     ) external onlyOwner {
-        OlympusZap.update_Staking( _staking );
+        staking = _staking;
     }
 
     function update_sOHM(
         address _sOHM
     ) external onlyOwner {
-        OlympusZap.update_sOHM( _sOHM );
+       sOHM = _sOHM;
     }
 
     function update_wsOHM(
         address _wsOHM
     ) external onlyOwner {
-        OlympusZap.update_wsOHM( _wsOHM );
+        wsOHM = _wsOHM;
     }
 
-    function update_BondDepository(
-        address principal, 
-        address depository
+    function update_BondDepos(
+        address[] calldata principals, 
+        address[] calldata depos
     ) external onlyOwner {
-        OlympusZap.update_BondDepository( principal, depository );
+        require( principals.length == depos.length, "array param lengths must match");
+        // update depos for each principal
+        for ( uint i; i < principals.length; i++) {
+            principalToDepository[ principals[ i ] ] = depos[ i ];
+        }
     }
 }
