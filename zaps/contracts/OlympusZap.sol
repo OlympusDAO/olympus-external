@@ -17,11 +17,9 @@
 // GNU Affero General Public License for more details.
 //
 
-/// @author Zapper
-/// @notice This abstract contract, which is inherited by Zaps,
-/// provides utility functions for moving tokens, checking allowances
-/// and balances, performing swaps and other Zaps, and accounting
-/// for fees.
+/// @author Zapper and OlympusDAO
+/// @notice This contract enters/exits OlympusDAO Ω with/to any token.
+/// Bonds can also be created on behalf of msg.sender using any input token.
 
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
@@ -46,6 +44,8 @@ interface IOlympusZapManager {
     function wsOHM() external view returns ( address );
 
     function principalToDepository( address ) external view returns ( address );
+
+    function owner() external view returns (address);
 }
 
 contract OlympusZap is ZapBaseV2_2 {
@@ -58,9 +58,6 @@ contract OlympusZap is ZapBaseV2_2 {
     // Emitted when `sender` Zaps In
     event zapIn(address sender, address token, uint256 tokensRec, address affiliate);
 
-    // Emitted when `sender` Zaps into a Bond
-    event zapInBond(address sender, address principal, uint amountIn, address affiliate);
-
     // Emitted when `sender` Zaps Out
     event zapOut(address sender, address token, uint256 tokensRec, address affiliate);
 
@@ -69,6 +66,12 @@ contract OlympusZap is ZapBaseV2_2 {
 
     IOlympusZapManager public olympusZapManager;
 
+    /////////////// Modifiers ///////////////
+
+    modifier onlyOlympusZapManagerOwner {
+        require (msg.sender == olympusZapManager.owner());
+        _;
+    }
 
     /////////////// Construction ///////////////
 
@@ -77,9 +80,16 @@ contract OlympusZap is ZapBaseV2_2 {
         uint256 _affiliateSplit,
         address _olympusZapManager
     ) ZapBaseV2_2(_goodwill, _affiliateSplit) {
+        // 0x Proxy
         approvedTargets[ 0xDef1C0ded9bec7F1a1670819833240f027b25EfF ] = true;
-        transferOwnership( ZapperAdmin );
+        // Zapper Sushiswap Zap In
+        approvedTargets[ 0x5abfbE56553a5d794330EACCF556Ca1d2a55647C ] = true;
+        // Zapper Uniswap V2 Zap In
+        approvedTargets[ 0x6D9893fa101CD2b1F8D1A12DE3189ff7b80FdC10 ] = true;
+
         olympusZapManager = IOlympusZapManager( _olympusZapManager );
+
+        transferOwnership( ZapperAdmin );
     }
 
     /**
@@ -87,13 +97,15 @@ contract OlympusZap is ZapBaseV2_2 {
      * @param fromToken The token used for entry (address(0) if ether)
      * @param amountIn The amount of fromToken to invest
      * @param toToken The token fromToken is getting converted to.
-     * @param minToToken The minimum acceptable quantity olympusZapManager.sOHM() or olympusZapManager.wsOHM() or principal tokens to receive. Reverts otherwise
+     * @param minToToken The minimum acceptable quantity olympusZapManager.sOHM() 
+     * or olympusZapManager.wsOHM() or principal tokens to receive. Reverts otherwise
      * @param swapTarget Excecution target for the swap or zap
      * @param swapData DEX or Zap data. Must swap to ibToken underlying address
      * @param affiliate Affiliate address
      * @param maxBondPrice Max price for a bond denominated in toToken/principal. Ignored if not bonding.
      * @param bond if toToken is being used to purchase a bond.
-     * @return OHMRec amount of ohm received
+     * @return OHMRec quantity of sOHM or wsOHM  received (depending on toToken)
+     * or the quantity OHM vesting (if bond is true)
      */
     function ZapIn(
         address fromToken,
@@ -113,9 +125,9 @@ contract OlympusZap is ZapBaseV2_2 {
             uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
             require(tokensBought >= minToToken, "High Slippage");
             // deposit bond on behalf of user, and return OHMRec
-            return olympusZapManager.deposit( toToken, tokensBought, maxBondPrice );
-            // emit zapInBond
-            emit zapInBond(msg.sender, toToken, tokensBought, affiliate);
+            OHMRec = olympusZapManager.deposit( toToken, tokensBought, maxBondPrice );
+            // emit zapIn
+            emit zapIn(msg.sender, toToken, OHMRec, affiliate);
         } else {
             require(toToken == olympusZapManager.sOHM() || toToken == olympusZapManager.wsOHM(), "toToken must be sOHM or wsOHM");
             uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
@@ -168,7 +180,7 @@ contract OlympusZap is ZapBaseV2_2 {
         address toToken
     ) internal returns (uint256) {
         IStaking staking = IStaking( olympusZapManager.staking() );
-        address wsOHM = IwsOHM( olympusZapManager.wsOHM() ;
+        address wsOHM =  olympusZapManager.wsOHM();
         _approveToken( olympusZapManager.OHM(), olympusZapManager.staking(), amount );
         if ( toToken == wsOHM ) {
             staking.stake(amount, address(this));
@@ -210,5 +222,11 @@ contract OlympusZap is ZapBaseV2_2 {
         } else if (fromToken == olympusZapManager.wsOHM()) {
             return IwsOHM(olympusZapManager.wsOHM()).wOHMTosOHM(fromAmount);
         }
+    }
+
+    function update_olympusZapManager(
+        IOlympusZapManager _olympusZapManager
+    ) external onlyOlympusZapManagerOwner {
+        olympusZapManager = _olympusZapManager;
     }
 }
