@@ -33,7 +33,7 @@ import "./libraries/SafeERC20.sol";
 import "./libraries/ZapBaseV2_2.sol";
 
 interface IOlympusZapManager {
-    function deposit( address _principal, uint _amount, uint _maxBondPrice ) external returns ( uint );
+    function deposit( address _depositor, address _principal, uint _amount, uint _maxBondPrice ) external returns ( uint );
 
     function staking() external view returns ( address );
 
@@ -125,7 +125,7 @@ contract OlympusZap is ZapBaseV2_2 {
             uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
             require(tokensBought >= minToToken, "High Slippage");
             // deposit bond on behalf of user, and return OHMRec
-            OHMRec = olympusZapManager.deposit( toToken, tokensBought, maxBondPrice );
+            OHMRec = olympusZapManager.deposit( msg.sender, toToken, tokensBought, maxBondPrice );
             // emit zapIn
             emit zapIn(msg.sender, toToken, OHMRec, affiliate);
         } else {
