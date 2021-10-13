@@ -24,6 +24,7 @@ contract OlympusZapManager is Ownable {
     ///////////// public logic ////////////
 
     function deposit(
+        address _depositor,
         address _principal,
         uint _amount,
         uint _maxBondPrice
@@ -32,7 +33,7 @@ contract OlympusZapManager is Ownable {
         // make sure market exists for given principal/toToken
         require( principalToDepository[ _principal ] != address(0), "bonding market doesn't exist");
         // buy bond on the behalf of user
-        depository.deposit( _amount, _maxBondPrice, msg.sender );
+        depository.deposit( _amount, _maxBondPrice, _depositor );
         // return OHM payout for the given bond
         return depository.payoutFor( _amount );
     }
