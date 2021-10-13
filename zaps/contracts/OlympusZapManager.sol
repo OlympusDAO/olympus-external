@@ -31,7 +31,9 @@ contract OlympusZapManager is Ownable {
     ) external returns ( uint ) {
         address depository = principalToDepository[ _principal ];
         // make sure market exists for given principal/toToken
-        require( principalToDepository[ _principal ] != address(0), "bonding market doesn't exist");
+        require( depository != address(0), "bonding market doesn't exist");
+        // approve the depository
+        IERC20( _principal ).approve( depository, _amount );
         // buy bond on the behalf of user
         IBondDepository( depository ).deposit( _amount, _maxBondPrice, _depositor );
         // return OHM payout for the given bond
