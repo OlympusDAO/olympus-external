@@ -29,13 +29,13 @@ contract OlympusZapManager is Ownable {
         uint _amount,
         uint _maxBondPrice
     ) external returns ( uint ) {
-        IBondDepository depository = IBondDepository( principalToDepository[ _principal ] );
+        address depository = principalToDepository[ _principal ];
         // make sure market exists for given principal/toToken
         require( principalToDepository[ _principal ] != address(0), "bonding market doesn't exist");
         // buy bond on the behalf of user
-        depository.deposit( _amount, _maxBondPrice, _depositor );
+        IBondDepository( depository ).deposit( _amount, _maxBondPrice, _depositor );
         // return OHM payout for the given bond
-        return depository.payoutFor( _amount );
+        return IBondDepository( depository ).payoutFor( _amount );
     }
 
     ///////////// policy only /////////////
