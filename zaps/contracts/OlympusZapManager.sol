@@ -5,6 +5,8 @@ import "./interfaces/IBondDepository.sol";
 
 import "./libraries/Ownable.sol";
 
+import "./interfaces/IERC20.sol";
+
 contract OlympusZapManager is Ownable {
 
 
