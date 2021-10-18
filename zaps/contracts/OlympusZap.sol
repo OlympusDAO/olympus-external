@@ -224,6 +224,11 @@ contract OlympusZap is ZapBaseV2_2 {
         }
     }
 
+    function bondPrice(address principal) external view returns (uint256) {
+        return IBondDepository(olympusZapManager.principalToDepository(principal)).bondPrice();
+
+    }
+
     function update_olympusZapManager(
         IOlympusZapManager _olympusZapManager
     ) external onlyOlympusZapManagerOwner {
