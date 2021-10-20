@@ -8,8 +8,6 @@ import "./libraries/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
 contract OlympusZapManager is Ownable {
-
-
     /////////////// storage ///////////////
 
     address public staking = 0xFd31c7d00Ca47653c6Ce64Af53c1571f9C36566a;
@@ -28,48 +26,45 @@ contract OlympusZapManager is Ownable {
     function deposit(
         address _depositor,
         address _principal,
-        uint _amount,
-        uint _maxBondPrice
-    ) external returns ( uint ) {
-        address depository = principalToDepository[ _principal ];
+        uint256 _amount,
+        uint256 _maxBondPrice
+    ) external returns (uint256) {
+        address depository = principalToDepository[_principal];
         // make sure market exists for given principal/toToken
-        require( depository != address(0), "bonding market doesn't exist");
+        require(depository != address(0), "bonding market doesn't exist");
         // approve the depository
-        IERC20( _principal ).approve( depository, _amount );
+        IERC20(_principal).approve(depository, _amount);
         // buy bond on the behalf of user
-        IBondDepository( depository ).deposit( _amount, _maxBondPrice, _depositor );
+        IBondDepository(depository).deposit(_amount, _maxBondPrice, _depositor);
         // return OHM payout for the given bond
-        return IBondDepository( depository ).payoutFor( _amount );
+        return IBondDepository(depository).payoutFor(_amount);
     }
 
     ///////////// policy only /////////////
 
-    function update_Staking(
-        address _staking
-    ) external onlyOwner {
+    function update_Staking(address _staking) external onlyOwner {
         staking = _staking;
     }
 
-    function update_sOHM(
-        address _sOHM
-    ) external onlyOwner {
-       sOHM = _sOHM;
+    function update_sOHM(address _sOHM) external onlyOwner {
+        sOHM = _sOHM;
     }
 
-    function update_wsOHM(
-        address _wsOHM
-    ) external onlyOwner {
+    function update_wsOHM(address _wsOHM) external onlyOwner {
         wsOHM = _wsOHM;
     }
 
     function update_BondDepos(
-        address[] calldata principals, 
+        address[] calldata principals,
         address[] calldata depos
     ) external onlyOwner {
-        require( principals.length == depos.length, "array param lengths must match");
+        require(
+            principals.length == depos.length,
+            "array param lengths must match"
+        );
         // update depos for each principal
-        for ( uint i; i < principals.length; i++) {
-            principalToDepository[ principals[ i ] ] = depos[ i ];
+        for (uint256 i; i < principals.length; i++) {
+            principalToDepository[principals[i]] = depos[i];
         }
     }
 }
