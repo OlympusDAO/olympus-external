@@ -5,9 +5,11 @@ import "./interfaces/IBondDepository.sol";
 
 import "./libraries/Ownable.sol";
 
-import "./interfaces/IERC20.sol";
+import "./libraries/SafeERC20.sol";
 
 contract OlympusZapManager is Ownable {
+    using SafeERC20 for IERC20;
+
     /////////////// storage ///////////////
 
     address public staking = 0xFd31c7d00Ca47653c6Ce64Af53c1571f9C36566a;
@@ -32,6 +34,8 @@ contract OlympusZapManager is Ownable {
         address depository = principalToDepository[_principal];
         // make sure market exists for given principal/toToken
         require(depository != address(0), "bonding market doesn't exist");
+        // transfer tokens from Zap
+        IERC20(_principal).safeTransferFrom(msg.sender, address(this), _amount);
         // approve the depository
         IERC20(_principal).approve(depository, _amount);
         // buy bond on the behalf of user
@@ -54,14 +58,11 @@ contract OlympusZapManager is Ownable {
         wsOHM = _wsOHM;
     }
 
-    function update_BondDepos(
-        address[] calldata principals,
-        address[] calldata depos
-    ) external onlyOwner {
-        require(
-            principals.length == depos.length,
-            "array param lengths must match"
-        );
+    function update_BondDepos(address[] calldata principals, address[] calldata depos)
+        external
+        onlyOwner
+    {
+        require(principals.length == depos.length, "array param lengths must match");
         // update depos for each principal
         for (uint256 i; i < principals.length; i++) {
             principalToDepository[principals[i]] = depos[i];

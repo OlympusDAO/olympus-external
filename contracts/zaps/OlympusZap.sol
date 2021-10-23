@@ -127,6 +127,7 @@ contract OlympusZap is ZapBaseV2_2 {
             uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
             require(tokensBought >= minToToken, "High Slippage");
             // deposit bond on behalf of user, and return OHMRec
+            _approveToken(toToken, address(olympusZapManager), tokensBought);
             OHMRec = olympusZapManager.deposit(msg.sender, toToken, tokensBought, maxBondPrice);
             // emit zapIn
             emit zapIn(msg.sender, toToken, OHMRec, affiliate);
