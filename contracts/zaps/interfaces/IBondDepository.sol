@@ -11,4 +11,14 @@ interface IBondDepository {
     function payoutFor(uint256 _value) external view returns (uint256);
 
     function bondPrice() external view returns (uint256 price_);
+
+    function bondInfo(address _depositor)
+        external
+        view
+        returns (
+            uint256 payout,
+            uint256 vesting,
+            uint256 lastBlock,
+            uint256 pricePaid
+        );
 }
