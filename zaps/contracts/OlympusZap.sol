@@ -119,7 +119,7 @@ contract OlympusZap is ZapBaseV2_2 {
             uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
             require(tokensBought >= minToToken, "High Slippage");
             // get depo address
-            address depo = IBondDepository( principalToDepository[ toToken ][ bondPayoutToken ];
+            address depo = IBondDepository( principalToDepository[ toToken ][ bondPayoutToken ] );
             // deposit bond on behalf of user, and return OHMRec
             OHMRec = IBondDepository( depo ).deposit( msg.sender, toToken, tokensBought, maxBondPrice );
             // emit zapIn
@@ -251,7 +251,7 @@ contract OlympusZap is ZapBaseV2_2 {
         address[] calldata payoutTokens,
         address[] calldata depos
     ) external onlyOlympusDAO {
-        require( principals.length == depos.length  && depos.length == payoutTokens.length, "array param lengths must match");
+        require( principals.length == depos.length  && depos.length == payoutTokens.length, "array param lengths must match" );
         // update depos for each principal
         for ( uint i; i < principals.length; i++) {
             principalToDepository[ principals[ i ] ][ payoutTokens[ i ] ] = depos[ i ];
