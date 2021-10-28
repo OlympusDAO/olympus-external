@@ -39,6 +39,9 @@ contract OlympusZap is ZapBaseV2_2 {
 
     /////////////// storage ///////////////
 
+
+    address public olympusDAO;
+
     address public staking = 0xFd31c7d00Ca47653c6Ce64Af53c1571f9C36566a;
 
     address public constant OHM = 0x383518188C0C6d7730D91b2c03a03C837814a899;
@@ -70,7 +73,7 @@ contract OlympusZap is ZapBaseV2_2 {
 
     constructor(
         uint256 _goodwill, 
-        uint256 _affiliateSplit
+        uint256 _affiliateSplit,
         address _olympusDAO
     ) ZapBaseV2_2(_goodwill, _affiliateSplit) {
         // 0x Proxy
@@ -90,8 +93,8 @@ contract OlympusZap is ZapBaseV2_2 {
      * @param fromToken The token used for entry (address(0) if ether)
      * @param amountIn The amount of fromToken to invest
      * @param toToken The token fromToken is getting converted to.
-     * @param minToToken The minimum acceptable quantity olympusZapManager.sOHM() 
-     * or olympusZapManager.wsOHM() or principal tokens to receive. Reverts otherwise
+     * @param minToToken The minimum acceptable quantity sOHM 
+     * or wsOHM or principal tokens to receive. Reverts otherwise
      * @param swapTarget Excecution target for the swap or zap
      * @param swapData DEX or Zap data. Must swap to ibToken underlying address
      * @param affiliate Affiliate address
@@ -119,18 +122,18 @@ contract OlympusZap is ZapBaseV2_2 {
             uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
             require(tokensBought >= minToToken, "High Slippage");
             // get depo address
-            address depo = IBondDepository( principalToDepository[ toToken ][ bondPayoutToken ];
+            address depo = principalToDepository[ toToken ][ bondPayoutToken ];
             // deposit bond on behalf of user, and return OHMRec
-            OHMRec = IBondDepository( depo ).deposit( msg.sender, toToken, tokensBought, maxBondPrice );
+            OHMRec = IBondDepository( depo ).deposit( tokensBought, maxBondPrice, msg.sender );
             // emit zapIn
             emit zapIn(msg.sender, toToken, OHMRec, affiliate);
         } else {
-            require(toToken == olympusZapManager.sOHM() || toToken == olympusZapManager.wsOHM(), "toToken must be sOHM or wsOHM");
+            require(toToken == sOHM || toToken == wsOHM, "toToken must be sOHM or wsOHM");
             uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
-            uint256 tokensBought = _fillQuote(fromToken, olympusZapManager.OHM(), toInvest, swapTarget, swapData);
+            uint256 tokensBought = _fillQuote(fromToken, OHM, toInvest, swapTarget, swapData);
             OHMRec = _enterOlympus(tokensBought, toToken);
             require(OHMRec > minToToken, "High Slippage");
-            emit zapIn(msg.sender, olympusZapManager.sOHM() , OHMRec, affiliate);
+            emit zapIn(msg.sender, sOHM , OHMRec, affiliate);
         }
     }
 
@@ -154,10 +157,10 @@ contract OlympusZap is ZapBaseV2_2 {
         bytes calldata swapData,
         address affiliate
     ) external stopInEmergency returns (uint256 tokensRec) {
-        require(fromToken == olympusZapManager.sOHM() || fromToken == olympusZapManager.wsOHM(), "fromToken must be sOHM or wsOHM");
+        require(fromToken == sOHM || fromToken == wsOHM, "fromToken must be sOHM or wsOHM");
         amountIn = _pullTokens( fromToken, amountIn );
         uint256 OHMRec = _exitOlympus( fromToken, amountIn );
-        tokensRec = _fillQuote( olympusZapManager.OHM(), toToken, OHMRec, swapTarget, swapData );
+        tokensRec = _fillQuote( OHM, toToken, OHMRec, swapTarget, swapData );
         require(tokensRec >= minToTokens, "High Slippage");
         uint256 totalGoodwillPortion;
         if (toToken == address(0)) {
@@ -175,21 +178,19 @@ contract OlympusZap is ZapBaseV2_2 {
         uint256 amount, 
         address toToken
     ) internal returns (uint256) {
-        IStaking staking = IStaking( olympusZapManager.staking() );
-        address wsOHM =  olympusZapManager.wsOHM();
-        _approveToken( olympusZapManager.OHM(), olympusZapManager.staking(), amount );
+        _approveToken( OHM, staking, amount );
         if ( toToken == wsOHM ) {
-            staking.stake(amount, address(this));
-            staking.claim(address(this));
-            _approveToken( olympusZapManager.sOHM(), wsOHM , amount);
+            IStaking( staking ).stake(amount, address(this));
+            IStaking( staking ).claim( address(this) );
+            _approveToken( sOHM, wsOHM , amount);
             uint256 beforeBalance = _getBalance( wsOHM  );
             IwsOHM( wsOHM ).wrap( amount );
             uint256 wsOHMRec = _getBalance( wsOHM  ) - beforeBalance;
             IERC20( wsOHM ).safeTransfer(msg.sender, wsOHMRec);
             return wsOHMRec;
         }
-        staking.stake(amount, msg.sender);
-        staking.claim(msg.sender);
+        IStaking( staking ).stake(amount, msg.sender);
+        IStaking( staking ).claim(msg.sender);
         return amount;
     }
 
@@ -197,15 +198,14 @@ contract OlympusZap is ZapBaseV2_2 {
         address fromToken, 
         uint256 amount
     ) internal returns (uint256){
-        IStaking staking = IStaking( olympusZapManager.staking() );
-        if (fromToken == olympusZapManager.wsOHM()) {
-            uint256 sOHMRec = IwsOHM(olympusZapManager.wsOHM()).unwrap(amount);
-            _approveToken(olympusZapManager.sOHM(), address( staking ), sOHMRec);
-            staking.unstake(sOHMRec, true);
+        if (fromToken == wsOHM) {
+            uint256 sOHMRec = IwsOHM(wsOHM).unwrap(amount);
+            _approveToken(sOHM, address( staking ), sOHMRec);
+            IStaking( staking ).unstake(sOHMRec, true);
             return sOHMRec;
         }
-        _approveToken(olympusZapManager.sOHM(), address( staking ), amount);
-        staking.unstake(amount, true);
+        _approveToken(sOHM, address( staking ), amount);
+        IStaking( staking ).unstake(amount, true);
         return amount;
     }
 
@@ -213,10 +213,10 @@ contract OlympusZap is ZapBaseV2_2 {
         address fromToken, 
         uint256 fromAmount
     ) external view returns (uint256 ohmAmount) {
-        if (fromToken == olympusZapManager.sOHM()) {
+        if (fromToken == sOHM) {
             return fromAmount;
-        } else if (fromToken == olympusZapManager.wsOHM()) {
-            return IwsOHM(olympusZapManager.wsOHM()).wOHMTosOHM(fromAmount);
+        } else if (fromToken == wsOHM) {
+            return IwsOHM(wsOHM).wOHMTosOHM(fromAmount);
         }
     }
 
@@ -251,7 +251,7 @@ contract OlympusZap is ZapBaseV2_2 {
         address[] calldata payoutTokens,
         address[] calldata depos
     ) external onlyOlympusDAO {
-        require( principals.length == depos.length  && depos.length == payoutTokens.length, "array param lengths must match");
+        require( principals.length == depos.length  && depos.length == payoutTokens.length, "array param lengths must match" );
         // update depos for each principal
         for ( uint i; i < principals.length; i++) {
             principalToDepository[ principals[ i ] ][ payoutTokens[ i ] ] = depos[ i ];
