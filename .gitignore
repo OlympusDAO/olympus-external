@@ -1,0 +1,6 @@
+bin/
+cache/
+
+node_modules
+
+.env
