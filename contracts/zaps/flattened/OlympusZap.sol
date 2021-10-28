@@ -1,3 +1,4 @@
+
 // ███████╗░█████╗░██████╗░██████╗░███████╗██████╗░░░░███████╗██╗
 // ╚════██║██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗░░░██╔════╝██║
 // ░░███╔═╝███████║██████╔╝██████╔╝█████╗░░██████╔╝░░░█████╗░░██║
@@ -17,15 +18,12 @@
 // GNU Affero General Public License for more details.
 //
 
-/// @author Zapper
-/// @notice This abstract contract, which is inherited by Zaps,
-/// provides utility functions for moving tokens, checking allowances
-/// and balances, performing swaps and other Zaps, and accounting
-/// for fees.
+/// @author Zapper and OlympusDAO
+/// @notice This contract enters/exits OlympusDAO Ω with/to any token.
+/// Bonds can also be created on behalf of msg.sender using any input token.
 
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
-
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -606,7 +604,6 @@ abstract contract Ownable is Context {
 
 interface IWETH {
     function deposit() external payable;
-
     function withdraw(uint256 wad) external;
 }
 
@@ -956,34 +953,34 @@ abstract contract ZapBaseV2_2 is Ownable {
 
 interface IStaking {
     function stake(uint256 _amount, address _recipient) external returns (bool);
-
     function unstake(uint256 _amount, bool _trigger) external;
-
     function claim(address _recipient) external;
 }
 
 interface IwsOHM {
     function unwrap(uint256 _amount) external returns (uint256);
-
     function wrap(uint256 _amount) external returns (uint256);
-
     function approve(address spender, uint256 amount) external returns (bool);
-
     function balanceOf(address account) external view returns (uint256);
-
     function wOHMTosOHM(uint256 _amount) external view returns (uint256);
 }
 
 interface IBondDepository {
     function deposit(uint _amount, uint _maxPrice, address _depositor) external returns ( uint );
-    function payoutFor( uint _value ) public view returns ( uint );
+    function payoutFor( uint _value ) external view returns ( uint );
 }
 
-// all major changes are noted with an "XXX" 
-
-contract OlympusDAO_Zap_V1_0_2 is ZapBaseV2_2 {
+contract OlympusZap is ZapBaseV2_2 {
 
     using SafeERC20 for IERC20;
+
+
+    /////////////// storage ///////////////
+
+
+    address public olympusDAO;
+
+    address public staking = 0xFd31c7d00Ca47653c6Ce64Af53c1571f9C36566a;
 
     address public constant OHM = 0x383518188C0C6d7730D91b2c03a03C837814a899;
 
@@ -991,28 +988,42 @@ contract OlympusDAO_Zap_V1_0_2 is ZapBaseV2_2 {
 
     address public wsOHM = 0xCa76543Cf381ebBB277bE79574059e32108e3E65;
 
-    IStaking public OHM_STAKING = IStaking(0xFd31c7d00Ca47653c6Ce64Af53c1571f9C36566a);
+    // IE DAI => wanted payout token (IE OHM) => bond depo
+    mapping( address => mapping( address => address ) ) public principalToDepository;
+
+    /////////////// Events ///////////////
 
     // Emitted when `sender` Zaps In
     event zapIn(address sender, address token, uint256 tokensRec, address affiliate);
 
-    // XXX
-    // Emitted when `sender` Zaps into a Bond
-    event zapInBond(address sender, address principal, uint amountIn, address affiliate);
-
     // Emitted when `sender` Zaps Out
     event zapOut(address sender, address token, uint256 tokensRec, address affiliate);
 
-    // XXX
-    // IE wethAddress => wethDepoAddress
-    mapping(address => address) public principalToDepository;
+
+    /////////////// Modifiers ///////////////
+
+    modifier onlyOlympusDAO {
+        require (msg.sender == olympusDAO);
+        _;
+    }
+
+    /////////////// Construction ///////////////
 
     constructor(
         uint256 _goodwill, 
-        uint256 _affiliateSplit
+        uint256 _affiliateSplit,
+        address _olympusDAO
     ) ZapBaseV2_2(_goodwill, _affiliateSplit) {
-        approvedTargets[0xDef1C0ded9bec7F1a1670819833240f027b25EfF] = true;
-        transferOwnership(ZapperAdmin);
+        // 0x Proxy
+        approvedTargets[ 0xDef1C0ded9bec7F1a1670819833240f027b25EfF ] = true;
+        // Zapper Sushiswap Zap In
+        approvedTargets[ 0x5abfbE56553a5d794330EACCF556Ca1d2a55647C ] = true;
+        // Zapper Uniswap V2 Zap In
+        approvedTargets[ 0x6D9893fa101CD2b1F8D1A12DE3189ff7b80FdC10 ] = true;
+        
+        olympusDAO = _olympusDAO;
+        
+        transferOwnership( ZapperAdmin );
     }
 
     /**
@@ -1020,13 +1031,15 @@ contract OlympusDAO_Zap_V1_0_2 is ZapBaseV2_2 {
      * @param fromToken The token used for entry (address(0) if ether)
      * @param amountIn The amount of fromToken to invest
      * @param toToken The token fromToken is getting converted to.
-     * @param minToToken The minimum acceptable quantity sOHM or wsOHM or principal tokens to receive. Reverts otherwise
+     * @param minToToken The minimum acceptable quantity sOHM 
+     * or wsOHM or principal tokens to receive. Reverts otherwise
      * @param swapTarget Excecution target for the swap or zap
      * @param swapData DEX or Zap data. Must swap to ibToken underlying address
      * @param affiliate Affiliate address
      * @param maxBondPrice Max price for a bond denominated in toToken/principal. Ignored if not bonding.
      * @param bond if toToken is being used to purchase a bond.
-     * @return OHMRec amount of ohm received
+     * @return OHMRec quantity of sOHM or wsOHM  received (depending on toToken)
+     * or the quantity OHM vesting (if bond is true)
      */
     function ZapIn(
         address fromToken,
@@ -1036,42 +1049,38 @@ contract OlympusDAO_Zap_V1_0_2 is ZapBaseV2_2 {
         address swapTarget,
         bytes calldata swapData,
         address affiliate,
-        uint maxBondPrice,        uint maxBondPrice,
+        address bondPayoutToken, // ignored if not bonding
+        uint maxBondPrice,       // ignored if not bonding
         bool bond
     ) external payable stopInEmergency returns ( uint OHMRec ) {
-        // XXX
         if ( bond ) {
-            // make sure market exists for given principal/toToken
-            require(principalToDepository[ toToken ] != address(0), "bonding market doesn't exist");
             // pull users fromToken
             uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
             // swap fromToken -> toToken 
             uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
             require(tokensBought >= minToToken, "High Slippage");
-            // buy bond on the behalf of user
-            IBondDepository( principalToDepository[ toToken ] ).deposit(tokensBought, maxBondPrice, msg.sender);
-            // return OHM payout for the given bond
-            OHMRec = IBondDepository( principalToDepository[ toToken ] ).payoutFor( tokensBought );
-            // emit zapInBond
-            emit zapInBond(msg.sender, toToken, tokensBought, affiliate);
+            // get depo address
+            address depo = principalToDepository[ toToken ][ bondPayoutToken ];
+            // deposit bond on behalf of user, and return OHMRec
+            OHMRec = IBondDepository( depo ).deposit( tokensBought, maxBondPrice, msg.sender );
+            // emit zapIn
+            emit zapIn(msg.sender, toToken, OHMRec, affiliate);
         } else {
             require(toToken == sOHM || toToken == wsOHM, "toToken must be sOHM or wsOHM");
             uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
             uint256 tokensBought = _fillQuote(fromToken, OHM, toInvest, swapTarget, swapData);
             OHMRec = _enterOlympus(tokensBought, toToken);
             require(OHMRec > minToToken, "High Slippage");
-            emit zapIn(msg.sender, sOHM, OHMRec, affiliate);
+            emit zapIn(msg.sender, sOHM , OHMRec, affiliate);
         }
     }
 
     /**
-     * @notice This function withdraws assets from OlympusDAO,
-     * receiving tokens or ETH
+     * @notice This function withdraws assets from OlympusDAO, receiving tokens or ETH
      * @param fromToken The ibToken being withdrawn
      * @param amountIn The quantity of fromToken to withdraw
      * @param toToken Address of the token to receive (0 address if ETH)
-     * @param minToTokens The minimum acceptable quantity
-     * of tokens to receive. Reverts otherwise
+     * @param minToTokens The minimum acceptable quantity of tokens to receive. Reverts otherwise
      * @param swapTarget Excecution target for the swap or zap
      * @param swapData DEX or Zap data
      * @param affiliate Affiliate address
@@ -1087,77 +1096,9 @@ contract OlympusDAO_Zap_V1_0_2 is ZapBaseV2_2 {
         address affiliate
     ) external stopInEmergency returns (uint256 tokensRec) {
         require(fromToken == sOHM || fromToken == wsOHM, "fromToken must be sOHM or wsOHM");
-        amountIn = _pullTokens(fromToken, amountIn);
-        uint256 OHMRec = _exitOlympus(fromToken, amountIn);
-        tokensRec = _fillQuote(OHM, toToken, OHMRec, swapTarget, swapData);
-        require(tokensRec >= minToTokens, "High Slippage");
-        uint256 totalGoodwillPortion;
-        if (toToken == address(0)) {
-            totalGoodwillPortion = _subtractGoodwill(ETHAddress, tokensRec, affiliate, true);
-            payable(msg.sender).transfer(tokensRec - totalGoodwillPortion);
-        } else {
-            totalGoodwillPortion = _subtractGoodwill(toToken, tokensRec, affiliate, true);
-            IERC20(toToken).safeTransfer(msg.sender, tokensRec - totalGoodwillPortion);
-        }
-        tokensRec = tokensRec - totalGoodwillPortion;
-        emit zapOut(msg.sender, toToken, tokensRec, affiliate);
-    }
-
-    function _enterOlympus(
-        uint256 amount, 
-        bool bond
-    ) external payable stopInEmergency returns ( uint OHMRec ) {
-        // XXX
-        if ( bond ) {
-            // make sure market exists for given principal/toToken
-            require(principalToDepository[ toToken ] != address(0), "bonding market doesn't exist");
-            // pull users fromToken
-            uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
-            // swap fromToken -> toToken 
-            uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
-            require(tokensBought >= minToToken, "High Slippage");
-            // buy bond on the behalf of user
-            IBondDepository( principalToDepository[ toToken ] ).deposit(tokensBought, maxBondPrice, msg.sender);
-            // return OHM payout for the given bond
-            OHMRec = IBondDepository( principalToDepository[ toToken ] ).payoutFor( tokensBought );
-            // emit zapInBond
-            emit zapInBond(msg.sender, toToken, tokensBought, affiliate);
-        } else {
-            require(toToken == sOHM || toToken == wsOHM, "toToken must be sOHM or wsOHM");
-            uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
-            uint256 tokensBought = _fillQuote(fromToken, OHM, toInvest, swapTarget, swapData);
-            OHMRec = _enterOlympus(tokensBought, toToken);
-            require(OHMRec > minToToken, "High Slippage");
-            emit zapIn(msg.sender, sOHM, OHMRec, affiliate);
-        }
-    }
-
-    /**
-     * @notice This function withdraws assets from OlympusDAO,
-     * receiving tokens or ETH
-     * @param fromToken The ibToken being withdrawn
-     * @param amountIn The quantity of fromToken to withdraw
-     * @param toToken Address of the token to receive (0 address if ETH)
-     * @param minToTokens The minimum acceptable quantity
-     * of tokens to receive. Reverts otherwise
-     * @param swapTarget Excecution target for the swap or zap
-     * @param swapData DEX or Zap data
-     * @param affiliate Affiliate address
-     * @return tokensRec Quantity of aTokens received
-     */
-    function ZapOut(
-        address fromToken,
-        uint256 amountIn,
-        address toToken,
-        uint256 minToTokens,
-        address swapTarget,
-        bytes calldata swapData,
-        address affiliate
-    ) external stopInEmergency returns (uint256 tokensRec) {
-        require(fromToken == sOHM || fromToken == wsOHM, "fromToken must be sOHM or wsOHM");
-        amountIn = _pullTokens(fromToken, amountIn);
-        uint256 OHMRec = _exitOlympus(fromToken, amountIn);
-        tokensRec = _fillQuote(OHM, toToken, OHMRec, swapTarget, swapData);
+        amountIn = _pullTokens( fromToken, amountIn );
+        uint256 OHMRec = _exitOlympus( fromToken, amountIn );
+        tokensRec = _fillQuote( OHM, toToken, OHMRec, swapTarget, swapData );
         require(tokensRec >= minToTokens, "High Slippage");
         uint256 totalGoodwillPortion;
         if (toToken == address(0)) {
@@ -1175,20 +1116,19 @@ contract OlympusDAO_Zap_V1_0_2 is ZapBaseV2_2 {
         uint256 amount, 
         address toToken
     ) internal returns (uint256) {
-        _approveToken(OHM, address(OHM_STAKING), amount);
-        if (toToken == wsOHM) {
-            OHM_STAKING.stake(amount, address(this));
-            OHM_STAKING.claim(address(this));
-            _approveToken(sOHM, wsOHM, amount);
-            uint256 beforeBalance = _getBalance(wsOHM);
-            IwsOHM(wsOHM).wrap(amount);
-            uint256 wsOHMRec = _getBalance(wsOHM) - beforeBalance;
-            IERC20(wsOHM).safeTransfer(msg.sender, wsOHMRec);
+        _approveToken( OHM, staking, amount );
+        if ( toToken == wsOHM ) {
+            IStaking( staking ).stake(amount, address(this));
+            IStaking( staking ).claim( address(this) );
+            _approveToken( sOHM, wsOHM , amount);
+            uint256 beforeBalance = _getBalance( wsOHM  );
+            IwsOHM( wsOHM ).wrap( amount );
+            uint256 wsOHMRec = _getBalance( wsOHM  ) - beforeBalance;
+            IERC20( wsOHM ).safeTransfer(msg.sender, wsOHMRec);
             return wsOHMRec;
         }
-        OHM_STAKING.stake(amount, msg.sender);
-        OHM_STAKING.claim(msg.sender);
-
+        IStaking( staking ).stake(amount, msg.sender);
+        IStaking( staking ).claim(msg.sender);
         return amount;
     }
 
@@ -1198,12 +1138,12 @@ contract OlympusDAO_Zap_V1_0_2 is ZapBaseV2_2 {
     ) internal returns (uint256){
         if (fromToken == wsOHM) {
             uint256 sOHMRec = IwsOHM(wsOHM).unwrap(amount);
-            _approveToken(sOHM, address(OHM_STAKING), sOHMRec);
-            OHM_STAKING.unstake(sOHMRec, true);
+            _approveToken(sOHM, address( staking ), sOHMRec);
+            IStaking( staking ).unstake(sOHMRec, true);
             return sOHMRec;
         }
-        _approveToken(sOHM, address(OHM_STAKING), amount);
-        OHM_STAKING.unstake(amount, true);
+        _approveToken(sOHM, address( staking ), amount);
+        IStaking( staking ).unstake(amount, true);
         return amount;
     }
 
@@ -1218,23 +1158,45 @@ contract OlympusDAO_Zap_V1_0_2 is ZapBaseV2_2 {
         }
     }
 
-    function update_Staking(IStaking _staking) external onlyOwner {
-        OHM_STAKING = _staking;
+    ///////////// olympus only /////////////
+    
+    function update_OlympusDAO(
+        address _olympusDAO
+    ) external onlyOlympusDAO {
+        olympusDAO = _olympusDAO;
     }
 
-    function update_sOHM(address _sOHM) external onlyOwner {
-        sOHM = _sOHM;
+    function update_Staking(
+        address _staking
+    ) external onlyOlympusDAO {
+        staking = _staking;
     }
 
-    function update_wsOHM(address _wsOHM) external onlyOwner {
+    function update_sOHM(
+        address _sOHM
+    ) external onlyOlympusDAO {
+       sOHM = _sOHM;
+    }
+
+    function update_wsOHM(
+        address _wsOHM
+    ) external onlyOlympusDAO {
         wsOHM = _wsOHM;
     }
 
-    // XXX
-    function update_BondDepository(
-        address principal, 
-        address depository
-    ) external onlyOwner {
-        principalToDepository[ principal ] = depository;
+    function update_BondDepos(
+        address[] calldata principals,
+        address[] calldata payoutTokens,
+        address[] calldata depos
+    ) external onlyOlympusDAO {
+        require( principals.length == depos.length  && depos.length == payoutTokens.length, "array param lengths must match" );
+        // update depos for each principal
+        for ( uint i; i < principals.length; i++) {
+            principalToDepository[ principals[ i ] ][ payoutTokens[ i ] ] = depos[ i ];
+            // max approve depo to save on gas
+            IERC20( principals[ i ] ).approve( depos[ i ], type( uint ).max );
+            // set depo as an approved target
+            approvedTargets[ depos[ i ] ] = true;
+        }
     }
 }
