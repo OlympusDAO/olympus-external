@@ -32,7 +32,7 @@ import "./interfaces/IwsOHM.sol";
 import "./libraries/SafeERC20.sol";
 import "./libraries/ZapBaseV2_2.sol";
 
-contract OlympusZap is ZapBaseV2_2 {
+contract Olympus_Zap_V2 is ZapBaseV2_2 {
     using SafeERC20 for IERC20;
 
     /////////////// storage ///////////////
@@ -114,21 +114,29 @@ contract OlympusZap is ZapBaseV2_2 {
         if (bond) {
             // pull users fromToken
             uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
+
             // swap fromToken -> toToken
             uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
             require(tokensBought >= minToToken, "High Slippage");
+
             // get depo address
             address depo = principalToDepository[toToken][bondPayoutToken];
+
             // deposit bond on behalf of user, and return OHMRec
             OHMRec = IBondDepository(depo).deposit(tokensBought, maxBondPrice, msg.sender);
+
             // emit zapIn
             emit zapIn(msg.sender, toToken, OHMRec, affiliate);
         } else {
             require(toToken == sOHM || toToken == wsOHM, "toToken must be sOHM or wsOHM");
+
             uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
+
             uint256 tokensBought = _fillQuote(fromToken, OHM, toInvest, swapTarget, swapData);
+
             OHMRec = _enterOlympus(tokensBought, toToken);
             require(OHMRec > minToToken, "High Slippage");
+
             emit zapIn(msg.sender, sOHM, OHMRec, affiliate);
         }
     }
@@ -154,48 +162,68 @@ contract OlympusZap is ZapBaseV2_2 {
         address affiliate
     ) external stopInEmergency returns (uint256 tokensRec) {
         require(fromToken == sOHM || fromToken == wsOHM, "fromToken must be sOHM or wsOHM");
+
         amountIn = _pullTokens(fromToken, amountIn);
+
         uint256 OHMRec = _exitOlympus(fromToken, amountIn);
+
         tokensRec = _fillQuote(OHM, toToken, OHMRec, swapTarget, swapData);
         require(tokensRec >= minToTokens, "High Slippage");
+
         uint256 totalGoodwillPortion;
         if (toToken == address(0)) {
             totalGoodwillPortion = _subtractGoodwill(ETHAddress, tokensRec, affiliate, true);
+
             payable(msg.sender).transfer(tokensRec - totalGoodwillPortion);
         } else {
             totalGoodwillPortion = _subtractGoodwill(toToken, tokensRec, affiliate, true);
+
             IERC20(toToken).safeTransfer(msg.sender, tokensRec - totalGoodwillPortion);
         }
         tokensRec = tokensRec - totalGoodwillPortion;
+
         emit zapOut(msg.sender, toToken, tokensRec, affiliate);
     }
 
     function _enterOlympus(uint256 amount, address toToken) internal returns (uint256) {
         _approveToken(OHM, staking, amount);
+
         if (toToken == wsOHM) {
             IStaking(staking).stake(amount, address(this));
             IStaking(staking).claim(address(this));
+
             _approveToken(sOHM, wsOHM, amount);
+
             uint256 beforeBalance = _getBalance(wsOHM);
+
             IwsOHM(wsOHM).wrap(amount);
+
             uint256 wsOHMRec = _getBalance(wsOHM) - beforeBalance;
+
             IERC20(wsOHM).safeTransfer(msg.sender, wsOHMRec);
+
             return wsOHMRec;
         }
         IStaking(staking).stake(amount, msg.sender);
         IStaking(staking).claim(msg.sender);
+
         return amount;
     }
 
     function _exitOlympus(address fromToken, uint256 amount) internal returns (uint256) {
         if (fromToken == wsOHM) {
             uint256 sOHMRec = IwsOHM(wsOHM).unwrap(amount);
+
             _approveToken(sOHM, address(staking), sOHMRec);
+
             IStaking(staking).unstake(sOHMRec, true);
+
             return sOHMRec;
         }
         _approveToken(sOHM, address(staking), amount);
+
         IStaking(staking).unstake(amount, true);
+
         return amount;
     }
 
@@ -241,6 +269,7 @@ contract OlympusZap is ZapBaseV2_2 {
         // update depos for each principal
         for (uint256 i; i < principals.length; i++) {
             principalToDepository[principals[i]][payoutTokens[i]] = depos[i];
+
             // max approve depo to save on gas
             _approveToken(principals[i], depos[i]);
         }
