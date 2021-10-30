@@ -25,11 +25,9 @@
 pragma solidity ^0.8.0;
 
 import "./interfaces/IBondDepository.sol";
-import "./interfaces/IERC20.sol";
 import "./interfaces/IStaking.sol";
 import "./interfaces/IwsOHM.sol";
 
-import "./libraries/SafeERC20.sol";
 import "./libraries/ZapBaseV2_2.sol";
 
 contract Olympus_Zap_V2 is ZapBaseV2_2 {
