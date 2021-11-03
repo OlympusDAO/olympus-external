@@ -119,6 +119,7 @@ contract OlympusZap is ZapBaseV2_2 {
             require(tokensBought >= minToToken, "High Slippage");
             // get depo address
             address depo = principalToDepository[toToken][bondPayoutToken];
+            require(depo != address(0), "Bond depo doesn't exist");
             // deposit bond on behalf of user, and return OHMRec
             OHMRec = IBondDepository(depo).deposit(tokensBought, maxBondPrice, msg.sender);
             // emit zapIn
