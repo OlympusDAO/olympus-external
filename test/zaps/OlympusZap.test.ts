@@ -19,7 +19,7 @@ import protocol from "../../libs/quote/zap/protocol";
 chai.use(solidity);
 const { expect } = chai;
 
-const OlympusZapArtifact = "contracts/zaps/OlympusZap.sol:OlympusZap";
+const OlympusZapArtifact = "Olympus_Zap_V2";
 
 describe("OlympusDAO Zap", () => {
   let ohmZap: OlympusZap;
