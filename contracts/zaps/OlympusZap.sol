@@ -246,4 +246,8 @@ contract OlympusZap is ZapBaseV2_2 {
             _approveToken(principals[i], depos[i]);
         }
     }
+
+    function bondPrice(address principal, address payoutToken) external view returns (uint256) {
+        return IBondDepository(principalToDepository[principal][payoutToken]).bondPrice();
+    }
 }
