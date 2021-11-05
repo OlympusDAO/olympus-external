@@ -1,6 +1,6 @@
 /* eslint-disable node/no-missing-import */
-import { artifacts, ethers } from "hardhat";
-import { constants, BigNumber, utils } from "ethers";
+import { network, ethers } from "hardhat";
+import { constants, BigNumber, utils, Signer } from "ethers";
 
 import { solidity } from "ethereum-waffle";
 import chai from "chai";
@@ -27,13 +27,24 @@ describe("OlympusDAO Zap", () => {
   let deployer: SignerWithAddress;
   let user: SignerWithAddress;
   let OlympusDAO: SignerWithAddress;
+  let zapperAdmin: Signer;
+
+  const zapperAdminAddress = "0x3CE37278de6388532C3949ce4e886F365B14fB56";
 
   const { ETH, DAI, OHM, sOHM, wsOHM, SPELL, ALCX } = address.tokens;
   const { OHM_LUSD, OHM_DAI, ALCX_ETH } = address.sushiswap;
-  const { OHM_LUSD_DEPO, OHM_DAI_DEPO, DAI_DEPO, ALCX_ETH_DEPO } = address.ohm;
+  const { OHM_FRAX } = address.uniswap;
+
+  const { OHM_LUSD_DEPO, OHM_DAI_DEPO, DAI_DEPO, ALCX_ETH_DEPO, OHM_FRAX_DEPO } = address.ohm;
 
   before(async () => {
     [deployer, user, OlympusDAO] = await ethers.getSigners();
+    // impersonate zapper admin
+    await network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [zapperAdminAddress],
+    });
+    zapperAdmin = await ethers.provider.getSigner(zapperAdminAddress);
 
     ohmZap = await ethers.getContractFactory(OlympusZapArtifact, deployer).then(async factory => {
       return (await factory.deploy(0, 0, OlympusDAO.address)) as OlympusZap;
@@ -515,92 +526,193 @@ describe("OlympusDAO Zap", () => {
       //     expect(vesting).to.be.gt(beforeVesting);
       //   });
       // });
-      context("Tokens", () => {
-        before(async () => {
-          await ohmZap.connect(OlympusDAO).update_BondDepos([DAI], [OHM], [DAI_DEPO]);
+    });
+    context("Uniswap V2 LPs", () => {
+      before(async () => {
+        await ohmZap.connect(OlympusDAO).update_BondDepos([OHM_FRAX], [OHM], [OHM_FRAX_DEPO]);
+      });
+      it("Should create bonds with OHM-FRAX using ETH", async () => {
+        const amountIn = utils.parseEther("5");
+        const fromToken = ETH;
+        const toToken = OHM_FRAX;
+
+        const { to, data } = await getZapInQuote({
+          toWhomToIssue: user.address,
+          sellToken: fromToken,
+          sellAmount: amountIn,
+          poolAddress: toToken,
+          protocol: protocol.uniswap,
         });
-        it("Should create bonds with DAI using ETH", async () => {
-          const amountIn = utils.parseEther("10");
-          const fromToken = ETH;
-          const toToken = DAI;
 
-          const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+        const depositoryAddress = await ohmZap.principalToDepository(toToken, OHM);
 
-          const depositoryAddress = await ohmZap.principalToDepository(toToken, OHM);
+        const depository = (await ethers.getContractAt(
+          "contracts/zaps/interfaces/IBondDepository.sol:IBondDepository",
+          depositoryAddress,
+        )) as IBondDepository;
 
-          const depository = (await ethers.getContractAt(
-            "contracts/zaps/interfaces/IBondDepository.sol:IBondDepository",
-            depositoryAddress,
-          )) as IBondDepository;
+        const maxBondPrice = await depository.bondPrice();
 
-          const maxBondPrice = await depository.bondPrice();
+        const beforeVesting = (await depository.bondInfo(user.address))[0];
 
-          const beforeVesting = (await depository.bondInfo(user.address))[0];
-
-          await ohmZap
-            .connect(user)
-            .ZapIn(
-              fromToken,
-              amountIn,
-              toToken,
-              1,
-              to,
-              data,
-              constants.AddressZero,
-              OHM,
-              maxBondPrice,
-              true,
-              { value: amountIn },
-            );
-
-          const vesting = (await depository.bondInfo(user.address))[0];
-
-          expect(vesting).to.be.gt(beforeVesting);
-        });
-        it("Should create bonds with DAI using SPELL", async () => {
-          const fromToken = SPELL;
-          const toToken = DAI;
-
-          const amountIn = await exchangeAndApprove(
-            user,
-            ETH,
+        await ohmZap
+          .connect(user)
+          .ZapIn(
             fromToken,
-            utils.parseEther("5"),
-            ohmZap.address,
+            amountIn,
+            toToken,
+            1,
+            to,
+            data,
+            constants.AddressZero,
+            OHM,
+            maxBondPrice,
+            true,
+            {
+              value: amountIn,
+            },
+          );
+        const vesting = (await depository.bondInfo(user.address))[0];
+
+        expect(vesting).to.be.gt(beforeVesting);
+      });
+      it("Should create bonds with OHM-FRAX using DAI", async () => {
+        const fromToken = DAI;
+        const toToken = OHM_FRAX;
+
+        const amountIn = await exchangeAndApprove(
+          user,
+          ETH,
+          fromToken,
+          utils.parseEther("5"),
+          ohmZap.address,
+        );
+
+        const { to, data } = await getZapInQuote({
+          toWhomToIssue: user.address,
+          sellToken: fromToken,
+          sellAmount: amountIn,
+          poolAddress: toToken,
+          protocol: protocol.uniswap,
+        });
+
+        const depositoryAddress = await ohmZap.principalToDepository(toToken, OHM);
+
+        const depository = (await ethers.getContractAt(
+          "contracts/zaps/interfaces/IBondDepository.sol:IBondDepository",
+          depositoryAddress,
+        )) as IBondDepository;
+
+        const maxBondPrice = await depository.bondPrice();
+
+        const beforeVesting = (await depository.bondInfo(user.address))[0];
+
+        await ohmZap
+          .connect(user)
+          .ZapIn(
+            fromToken,
+            amountIn,
+            toToken,
+            1,
+            to,
+            data,
+            constants.AddressZero,
+            OHM,
+            maxBondPrice,
+            true,
           );
 
-          const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+        const vesting = (await depository.bondInfo(user.address))[0];
 
-          const depositoryAddress = await ohmZap.principalToDepository(toToken, OHM);
+        expect(vesting).to.be.gt(beforeVesting);
+      });
+    });
 
-          const depository = (await ethers.getContractAt(
-            "contracts/zaps/interfaces/IBondDepository.sol:IBondDepository",
-            depositoryAddress,
-          )) as IBondDepository;
+    context("Tokens", () => {
+      before(async () => {
+        await ohmZap.connect(OlympusDAO).update_BondDepos([DAI], [OHM], [DAI_DEPO]);
+      });
+      it("Should create bonds with DAI using ETH", async () => {
+        const amountIn = utils.parseEther("10");
+        const fromToken = ETH;
+        const toToken = DAI;
 
-          const maxBondPrice = await depository.bondPrice();
+        const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
 
-          const beforeVesting = (await depository.bondInfo(user.address))[0];
+        const depositoryAddress = await ohmZap.principalToDepository(toToken, OHM);
 
-          await ohmZap
-            .connect(user)
-            .ZapIn(
-              fromToken,
-              amountIn,
-              toToken,
-              1,
-              to,
-              data,
-              constants.AddressZero,
-              OHM,
-              maxBondPrice,
-              true,
-            );
+        const depository = (await ethers.getContractAt(
+          "contracts/zaps/interfaces/IBondDepository.sol:IBondDepository",
+          depositoryAddress,
+        )) as IBondDepository;
 
-          const vesting = (await depository.bondInfo(user.address))[0];
+        const maxBondPrice = await depository.bondPrice();
 
-          expect(vesting).to.be.gt(beforeVesting);
-        });
+        const beforeVesting = (await depository.bondInfo(user.address))[0];
+
+        await ohmZap
+          .connect(user)
+          .ZapIn(
+            fromToken,
+            amountIn,
+            toToken,
+            1,
+            to,
+            data,
+            constants.AddressZero,
+            OHM,
+            maxBondPrice,
+            true,
+            { value: amountIn },
+          );
+
+        const vesting = (await depository.bondInfo(user.address))[0];
+
+        expect(vesting).to.be.gt(beforeVesting);
+      });
+      it("Should create bonds with DAI using SPELL", async () => {
+        const fromToken = SPELL;
+        const toToken = DAI;
+
+        const amountIn = await exchangeAndApprove(
+          user,
+          ETH,
+          fromToken,
+          utils.parseEther("5"),
+          ohmZap.address,
+        );
+
+        const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+
+        const depositoryAddress = await ohmZap.principalToDepository(toToken, OHM);
+
+        const depository = (await ethers.getContractAt(
+          "contracts/zaps/interfaces/IBondDepository.sol:IBondDepository",
+          depositoryAddress,
+        )) as IBondDepository;
+
+        const maxBondPrice = await depository.bondPrice();
+
+        const beforeVesting = (await depository.bondInfo(user.address))[0];
+
+        await ohmZap
+          .connect(user)
+          .ZapIn(
+            fromToken,
+            amountIn,
+            toToken,
+            1,
+            to,
+            data,
+            constants.AddressZero,
+            OHM,
+            maxBondPrice,
+            true,
+          );
+
+        const vesting = (await depository.bondInfo(user.address))[0];
+
+        expect(vesting).to.be.gt(beforeVesting);
       });
     });
     describe("Olympus Pro Bonds", () => {
@@ -707,6 +819,88 @@ describe("OlympusDAO Zap", () => {
 
           expect(vesting).to.be.gt(beforeVesting);
         });
+      });
+    });
+  });
+  describe("Security", () => {
+    context("Pausable", () => {
+      before(async () => {
+        await ohmZap.connect(zapperAdmin).toggleContractActive();
+      });
+      after(async () => {
+        await ohmZap.connect(zapperAdmin).toggleContractActive();
+      });
+      it("Should pause ZapIns", async () => {
+        const amountIn = utils.parseEther("5");
+        const fromToken = ETH;
+        const toToken = ALCX_ETH;
+
+        await expect(
+          ohmZap
+            .connect(user)
+            .ZapIn(
+              fromToken,
+              amountIn,
+              toToken,
+              1,
+              constants.AddressZero,
+              constants.HashZero,
+              constants.AddressZero,
+              constants.AddressZero,
+              0,
+              false,
+              {
+                value: amountIn,
+              },
+            ),
+        ).to.be.revertedWith("Paused");
+      });
+      it("Should pause ZapIns", async () => {
+        const amountIn = utils.parseEther("5");
+        const fromToken = ETH;
+        const toToken = ALCX_ETH;
+
+        await expect(
+          ohmZap
+            .connect(user)
+            .ZapOut(
+              fromToken,
+              amountIn,
+              toToken,
+              1,
+              constants.AddressZero,
+              constants.HashZero,
+              constants.AddressZero,
+            ),
+        ).to.be.revertedWith("Paused");
+      });
+      it("Should only be pausable by Zapper Admin", async () => {
+        await ohmZap.connect(zapperAdmin).toggleContractActive();
+        await expect(ohmZap.toggleContractActive()).to.be.revertedWith(
+          "Ownable: caller is not the owner",
+        );
+        await ohmZap.connect(zapperAdmin).toggleContractActive();
+      });
+    });
+    context("onlyOlympusDAO", () => {
+      it("Should only allow OlympusDAO to update depos", async () => {
+        await expect(ohmZap.connect(user).update_BondDepos([], [], [])).to.be.revertedWith(
+          "Only OlympusDAO",
+        );
+      });
+      it("Should only allow OlympusDAO to update staking", async () => {
+        await expect(ohmZap.connect(user).update_Staking(ALCX)).to.be.revertedWith(
+          "Only OlympusDAO",
+        );
+      });
+      it("Should only allow OlympusDAO to update sOHM", async () => {
+        await expect(ohmZap.connect(user).update_sOHM(ALCX)).to.be.revertedWith("Only OlympusDAO");
+      });
+      it("Should only allow OlympusDAO to update wsOHM", async () => {
+        await expect(ohmZap.connect(user).update_wsOHM(ALCX)).to.be.revertedWith("Only OlympusDAO");
+      });
+      it("Should only allow OlympusDAO to update wsOHM", async () => {
+        await expect(ohmZap.connect(user).update_wsOHM(ALCX)).to.be.revertedWith("Only OlympusDAO");
       });
     });
   });
