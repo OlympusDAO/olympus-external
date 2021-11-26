@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity =0.8.0;
+pragma solidity >=0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "../interfaces/ISettlement.sol";
@@ -12,7 +12,10 @@ contract SettlementCaller {
         settlement = _settlement;
     }
 
-    function fillOrder(ISettlement.FillOrderArgs calldata args) external returns (uint amountOut) {
+    function fillOrder(ISettlement.FillOrderArgs calldata args)
+        external
+        returns (uint256 amountOut)
+    {
         return settlement.fillOrder(args);
     }
 }

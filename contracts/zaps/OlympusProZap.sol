@@ -21,7 +21,7 @@
 /// @notice This contract enters Olympus Pro bonds
 
 // SPDX-License-Identifier: GPL-2.0
-pragma solidity ^0.8.0;
+pragma solidity >=0.8.0;
 
 import "./interfaces/ICustomBondDepo.sol";
 

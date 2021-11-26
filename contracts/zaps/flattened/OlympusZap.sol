@@ -1,4 +1,3 @@
-
 // ███████╗░█████╗░██████╗░██████╗░███████╗██████╗░░░░███████╗██╗
 // ╚════██║██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗░░░██╔════╝██║
 // ░░███╔═╝███████║██████╔╝██████╔╝█████╗░░██████╔╝░░░█████╗░░██║
@@ -23,7 +22,7 @@
 /// Bonds can also be created on behalf of msg.sender using any input token.
 
 // SPDX-License-Identifier: GPL-2.0
-pragma solidity ^0.8.0;
+pragma solidity >=0.8.0;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -46,9 +45,7 @@ interface IERC20 {
      *
      * Emits a {Transfer} event.
      */
-    function transfer(address recipient, uint256 amount)
-        external
-        returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
 
     /**
      * @dev Returns the remaining number of tokens that `spender` will be
@@ -57,10 +54,7 @@ interface IERC20 {
      *
      * This value changes when {approve} or {transferFrom} are called.
      */
-    function allowance(address owner, address spender)
-        external
-        view
-        returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
 
     /**
      * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
@@ -105,11 +99,7 @@ interface IERC20 {
      * @dev Emitted when the allowance of a `spender` for an `owner` is set by
      * a call to {approve}. `value` is the new allowance.
      */
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 value
-    );
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
 /**
@@ -206,17 +196,11 @@ library Address {
      * https://solidity.readthedocs.io/en/v0.5.11/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
      */
     function sendValue(address payable recipient, uint256 amount) internal {
-        require(
-            address(this).balance >= amount,
-            "Address: insufficient balance"
-        );
+        require(address(this).balance >= amount, "Address: insufficient balance");
 
         // solhint-disable-next-line avoid-low-level-calls, avoid-call-value
         (bool success, ) = recipient.call{ value: amount }("");
-        require(
-            success,
-            "Address: unable to send value, recipient may have reverted"
-        );
+        require(success, "Address: unable to send value, recipient may have reverted");
     }
 
     /**
@@ -237,10 +221,7 @@ library Address {
      *
      * _Available since v3.1._
      */
-    function functionCall(address target, bytes memory data)
-        internal
-        returns (bytes memory)
-    {
+    function functionCall(address target, bytes memory data) internal returns (bytes memory) {
         return functionCall(target, data, "Address: low-level call failed");
     }
 
@@ -275,12 +256,7 @@ library Address {
         uint256 value
     ) internal returns (bytes memory) {
         return
-            functionCallWithValue(
-                target,
-                data,
-                value,
-                "Address: low-level call with value failed"
-            );
+            functionCallWithValue(target, data, value, "Address: low-level call with value failed");
     }
 
     /**
@@ -295,15 +271,11 @@ library Address {
         uint256 value,
         string memory errorMessage
     ) internal returns (bytes memory) {
-        require(
-            address(this).balance >= value,
-            "Address: insufficient balance for call"
-        );
+        require(address(this).balance >= value, "Address: insufficient balance for call");
         require(isContract(target), "Address: call to non-contract");
 
         // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) =
-            target.call{ value: value }(data);
+        (bool success, bytes memory returndata) = target.call{ value: value }(data);
         return _verifyCallResult(success, returndata, errorMessage);
     }
 
@@ -318,12 +290,7 @@ library Address {
         view
         returns (bytes memory)
     {
-        return
-            functionStaticCall(
-                target,
-                data,
-                "Address: low-level static call failed"
-            );
+        return functionStaticCall(target, data, "Address: low-level static call failed");
     }
 
     /**
@@ -354,12 +321,7 @@ library Address {
         internal
         returns (bytes memory)
     {
-        return
-            functionDelegateCall(
-                target,
-                data,
-                "Address: low-level delegate call failed"
-            );
+        return functionDelegateCall(target, data, "Address: low-level delegate call failed");
     }
 
     /**
@@ -421,10 +383,7 @@ library SafeERC20 {
         address to,
         uint256 value
     ) internal {
-        _callOptionalReturn(
-            token,
-            abi.encodeWithSelector(token.transfer.selector, to, value)
-        );
+        _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
     }
 
     function safeTransferFrom(
@@ -459,10 +418,7 @@ library SafeERC20 {
             (value == 0) || (token.allowance(address(this), spender) == 0),
             "SafeERC20: approve from non-zero to non-zero allowance"
         );
-        _callOptionalReturn(
-            token,
-            abi.encodeWithSelector(token.approve.selector, spender, value)
-        );
+        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, value));
     }
 
     function safeIncreaseAllowance(
@@ -473,11 +429,7 @@ library SafeERC20 {
         uint256 newAllowance = token.allowance(address(this), spender) + value;
         _callOptionalReturn(
             token,
-            abi.encodeWithSelector(
-                token.approve.selector,
-                spender,
-                newAllowance
-            )
+            abi.encodeWithSelector(token.approve.selector, spender, newAllowance)
         );
     }
 
@@ -488,18 +440,11 @@ library SafeERC20 {
     ) internal {
         unchecked {
             uint256 oldAllowance = token.allowance(address(this), spender);
-            require(
-                oldAllowance >= value,
-                "SafeERC20: decreased allowance below zero"
-            );
+            require(oldAllowance >= value, "SafeERC20: decreased allowance below zero");
             uint256 newAllowance = oldAllowance - value;
             _callOptionalReturn(
                 token,
-                abi.encodeWithSelector(
-                    token.approve.selector,
-                    spender,
-                    newAllowance
-                )
+                abi.encodeWithSelector(token.approve.selector, spender, newAllowance)
             );
         }
     }
@@ -515,22 +460,17 @@ library SafeERC20 {
         // we're implementing it ourselves. We use {Address.functionCall} to perform this call, which verifies that
         // the target address contains contract code and also asserts for success in the low-level call.
 
-        bytes memory returndata =
-            address(token).functionCall(
-                data,
-                "SafeERC20: low-level call failed"
-            );
+        bytes memory returndata = address(token).functionCall(
+            data,
+            "SafeERC20: low-level call failed"
+        );
         if (returndata.length > 0) {
             // Return data is optional
             // solhint-disable-next-line max-line-length
-            require(
-                abi.decode(returndata, (bool)),
-                "SafeERC20: ERC20 operation did not succeed"
-            );
+            require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
         }
     }
 }
-
 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
@@ -547,10 +487,7 @@ library SafeERC20 {
 abstract contract Ownable is Context {
     address private _owner;
 
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
@@ -593,10 +530,7 @@ abstract contract Ownable is Context {
      * Can only be called by the current owner.
      */
     function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(
-            newOwner != address(0),
-            "Ownable: new owner is the zero address"
-        );
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
     }
@@ -604,6 +538,7 @@ abstract contract Ownable is Context {
 
 interface IWETH {
     function deposit() external payable;
+
     function withdraw(uint256 wad) external;
 }
 
@@ -611,8 +546,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     using SafeERC20 for IERC20;
     bool public stopped;
 
-    address private constant wethTokenAddress =
-        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address private constant wethTokenAddress = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     // if true, goodwill is not deducted
     mapping(address => bool) public feeWhitelist;
@@ -629,14 +563,12 @@ abstract contract ZapBaseV2_2 is Ownable {
     // swapTarget => approval status
     mapping(address => bool) public approvedTargets;
 
-    address internal constant ETHAddress =
-        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address internal constant ETHAddress = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    address internal constant ZapperAdmin =
-        0x3CE37278de6388532C3949ce4e886F365B14fB56;
+    address internal constant ZapperAdmin = 0x3CE37278de6388532C3949ce4e886F365B14fB56;
 
     // circuit breaker modifiers
-    modifier stopInEmergency {
+    modifier stopInEmergency() {
         require(!stopped, "Paused");
         _;
     }
@@ -678,12 +610,7 @@ abstract contract ZapBaseV2_2 is Ownable {
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
-        totalGoodwillPortion = _subtractGoodwill(
-            token,
-            amount,
-            affiliate,
-            enableGoodwill
-        );
+        totalGoodwillPortion = _subtractGoodwill(token, amount, affiliate, enableGoodwill);
 
         return amount - totalGoodwillPortion;
     }
@@ -694,11 +621,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param token The ERC20 token to transfer to this contract
     @return Quantity of tokens transferred to this contract
      */
-    function _pullTokens(address token, uint256 amount)
-        internal
-        virtual
-        returns (uint256)
-    {
+    function _pullTokens(address token, uint256 amount) internal virtual returns (uint256) {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         return amount;
@@ -757,11 +680,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param token The ERC20 token to check the balance of (0 address if ETH)
     @return balance This contract's token balance
      */
-    function _getBalance(address token)
-        internal
-        view
-        returns (uint256 balance)
-    {
+    function _getBalance(address token) internal view returns (uint256 balance) {
         if (token == address(0)) {
             balance = address(this).balance;
         } else {
@@ -802,10 +721,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param zapAddress The Zap caller which is allowed to bypass fees (if > 0)
     @param status The whitelisted status (true if whitelisted)
      */
-    function set_feeWhitelist(address zapAddress, bool status)
-        external
-        onlyOwner
-    {
+    function set_feeWhitelist(address zapAddress, bool status) external onlyOwner {
         feeWhitelist[zapAddress] = status;
     }
 
@@ -814,10 +730,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param _new_goodwill The new goodwill amount between 0-1%
      */
     function set_new_goodwill(uint256 _new_goodwill) public onlyOwner {
-        require(
-            _new_goodwill >= 0 && _new_goodwill <= 100,
-            "GoodWill Value not allowed"
-        );
+        require(_new_goodwill >= 0 && _new_goodwill <= 100, "GoodWill Value not allowed");
         goodwill = _new_goodwill;
     }
 
@@ -826,14 +739,8 @@ abstract contract ZapBaseV2_2 is Ownable {
     * to affiliates
     @param _new_affiliateSplit The new affiliate split between 0-1%
      */
-    function set_new_affiliateSplit(uint256 _new_affiliateSplit)
-        external
-        onlyOwner
-    {
-        require(
-            _new_affiliateSplit <= 100,
-            "Affiliate Split Value not allowed"
-        );
+    function set_new_affiliateSplit(uint256 _new_affiliateSplit) external onlyOwner {
+        require(_new_affiliateSplit <= 100, "Affiliate Split Value not allowed");
         affiliateSplit = _new_affiliateSplit;
     }
 
@@ -842,10 +749,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param _affiliate The  affiliate's address
     @param _status The affiliate's approval status
      */
-    function set_affiliate(address _affiliate, bool _status)
-        external
-        onlyOwner
-    {
+    function set_affiliate(address _affiliate, bool _status) external onlyOwner {
         affiliates[_affiliate] = _status;
     }
 
@@ -862,9 +766,7 @@ abstract contract ZapBaseV2_2 is Ownable {
 
                 Address.sendValue(payable(owner()), qty);
             } else {
-                qty =
-                    IERC20(tokens[i]).balanceOf(address(this)) -
-                    totalAffiliateBalance[tokens[i]];
+                qty = IERC20(tokens[i]).balanceOf(address(this)) - totalAffiliateBalance[tokens[i]];
                 IERC20(tokens[i]).safeTransfer(owner(), qty);
             }
         }
@@ -879,9 +781,7 @@ abstract contract ZapBaseV2_2 is Ownable {
         for (uint256 i = 0; i < tokens.length; i++) {
             tokenBal = affiliateBalance[msg.sender][tokens[i]];
             affiliateBalance[msg.sender][tokens[i]] = 0;
-            totalAffiliateBalance[tokens[i]] =
-                totalAffiliateBalance[tokens[i]] -
-                tokenBal;
+            totalAffiliateBalance[tokens[i]] = totalAffiliateBalance[tokens[i]] - tokenBal;
 
             if (tokens[i] == ETHAddress) {
                 Address.sendValue(payable(msg.sender), tokenBal);
@@ -896,10 +796,10 @@ abstract contract ZapBaseV2_2 is Ownable {
     * swapTargets should be Zaps and must not be tokens!
     @param targets An array of addresses of approved swapTargets
     */
-    function setApprovedTargets(
-        address[] calldata targets,
-        bool[] calldata isApproved
-    ) external onlyOwner {
+    function setApprovedTargets(address[] calldata targets, bool[] calldata isApproved)
+        external
+        onlyOwner
+    {
         require(targets.length == isApproved.length, "Invalid Input length");
 
         for (uint256 i = 0; i < targets.length; i++) {
@@ -931,8 +831,7 @@ abstract contract ZapBaseV2_2 is Ownable {
                     token = ETHAddress;
                 }
 
-                uint256 affiliatePortion =
-                    (totalGoodwillPortion * affiliateSplit) / 100;
+                uint256 affiliatePortion = (totalGoodwillPortion * affiliateSplit) / 100;
                 affiliateBalance[affiliate][token] += affiliatePortion;
                 totalAffiliateBalance[token] += affiliatePortion;
             }
@@ -953,30 +852,38 @@ abstract contract ZapBaseV2_2 is Ownable {
 
 interface IStaking {
     function stake(uint256 _amount, address _recipient) external returns (bool);
+
     function unstake(uint256 _amount, bool _trigger) external;
+
     function claim(address _recipient) external;
 }
 
 interface IwsOHM {
     function unwrap(uint256 _amount) external returns (uint256);
+
     function wrap(uint256 _amount) external returns (uint256);
+
     function approve(address spender, uint256 amount) external returns (bool);
+
     function balanceOf(address account) external view returns (uint256);
+
     function wOHMTosOHM(uint256 _amount) external view returns (uint256);
 }
 
 interface IBondDepository {
-    function deposit(uint _amount, uint _maxPrice, address _depositor) external returns ( uint );
-    function payoutFor( uint _value ) external view returns ( uint );
+    function deposit(
+        uint256 _amount,
+        uint256 _maxPrice,
+        address _depositor
+    ) external returns (uint256);
+
+    function payoutFor(uint256 _value) external view returns (uint256);
 }
 
 contract OlympusZap is ZapBaseV2_2 {
-
     using SafeERC20 for IERC20;
 
-
     /////////////// storage ///////////////
-
 
     address public olympusDAO;
 
@@ -989,7 +896,7 @@ contract OlympusZap is ZapBaseV2_2 {
     address public wsOHM = 0xCa76543Cf381ebBB277bE79574059e32108e3E65;
 
     // IE DAI => wanted payout token (IE OHM) => bond depo
-    mapping( address => mapping( address => address ) ) public principalToDepository;
+    mapping(address => mapping(address => address)) public principalToDepository;
 
     /////////////// Events ///////////////
 
@@ -999,31 +906,30 @@ contract OlympusZap is ZapBaseV2_2 {
     // Emitted when `sender` Zaps Out
     event zapOut(address sender, address token, uint256 tokensRec, address affiliate);
 
-
     /////////////// Modifiers ///////////////
 
-    modifier onlyOlympusDAO {
-        require (msg.sender == olympusDAO);
+    modifier onlyOlympusDAO() {
+        require(msg.sender == olympusDAO);
         _;
     }
 
     /////////////// Construction ///////////////
 
     constructor(
-        uint256 _goodwill, 
+        uint256 _goodwill,
         uint256 _affiliateSplit,
         address _olympusDAO
     ) ZapBaseV2_2(_goodwill, _affiliateSplit) {
         // 0x Proxy
-        approvedTargets[ 0xDef1C0ded9bec7F1a1670819833240f027b25EfF ] = true;
+        approvedTargets[0xDef1C0ded9bec7F1a1670819833240f027b25EfF] = true;
         // Zapper Sushiswap Zap In
-        approvedTargets[ 0x5abfbE56553a5d794330EACCF556Ca1d2a55647C ] = true;
+        approvedTargets[0x5abfbE56553a5d794330EACCF556Ca1d2a55647C] = true;
         // Zapper Uniswap V2 Zap In
-        approvedTargets[ 0x6D9893fa101CD2b1F8D1A12DE3189ff7b80FdC10 ] = true;
-        
+        approvedTargets[0x6D9893fa101CD2b1F8D1A12DE3189ff7b80FdC10] = true;
+
         olympusDAO = _olympusDAO;
-        
-        transferOwnership( ZapperAdmin );
+
+        transferOwnership(ZapperAdmin);
     }
 
     /**
@@ -1031,7 +937,7 @@ contract OlympusZap is ZapBaseV2_2 {
      * @param fromToken The token used for entry (address(0) if ether)
      * @param amountIn The amount of fromToken to invest
      * @param toToken The token fromToken is getting converted to.
-     * @param minToToken The minimum acceptable quantity sOHM 
+     * @param minToToken The minimum acceptable quantity sOHM
      * or wsOHM or principal tokens to receive. Reverts otherwise
      * @param swapTarget Excecution target for the swap or zap
      * @param swapData DEX or Zap data. Must swap to ibToken underlying address
@@ -1050,19 +956,19 @@ contract OlympusZap is ZapBaseV2_2 {
         bytes calldata swapData,
         address affiliate,
         address bondPayoutToken, // ignored if not bonding
-        uint maxBondPrice,       // ignored if not bonding
+        uint256 maxBondPrice, // ignored if not bonding
         bool bond
-    ) external payable stopInEmergency returns ( uint OHMRec ) {
-        if ( bond ) {
+    ) external payable stopInEmergency returns (uint256 OHMRec) {
+        if (bond) {
             // pull users fromToken
             uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
-            // swap fromToken -> toToken 
+            // swap fromToken -> toToken
             uint256 tokensBought = _fillQuote(fromToken, toToken, toInvest, swapTarget, swapData);
             require(tokensBought >= minToToken, "High Slippage");
             // get depo address
-            address depo = principalToDepository[ toToken ][ bondPayoutToken ];
+            address depo = principalToDepository[toToken][bondPayoutToken];
             // deposit bond on behalf of user, and return OHMRec
-            OHMRec = IBondDepository( depo ).deposit( tokensBought, maxBondPrice, msg.sender );
+            OHMRec = IBondDepository(depo).deposit(tokensBought, maxBondPrice, msg.sender);
             // emit zapIn
             emit zapIn(msg.sender, toToken, OHMRec, affiliate);
         } else {
@@ -1071,7 +977,7 @@ contract OlympusZap is ZapBaseV2_2 {
             uint256 tokensBought = _fillQuote(fromToken, OHM, toInvest, swapTarget, swapData);
             OHMRec = _enterOlympus(tokensBought, toToken);
             require(OHMRec > minToToken, "High Slippage");
-            emit zapIn(msg.sender, sOHM , OHMRec, affiliate);
+            emit zapIn(msg.sender, sOHM, OHMRec, affiliate);
         }
     }
 
@@ -1096,9 +1002,9 @@ contract OlympusZap is ZapBaseV2_2 {
         address affiliate
     ) external stopInEmergency returns (uint256 tokensRec) {
         require(fromToken == sOHM || fromToken == wsOHM, "fromToken must be sOHM or wsOHM");
-        amountIn = _pullTokens( fromToken, amountIn );
-        uint256 OHMRec = _exitOlympus( fromToken, amountIn );
-        tokensRec = _fillQuote( OHM, toToken, OHMRec, swapTarget, swapData );
+        amountIn = _pullTokens(fromToken, amountIn);
+        uint256 OHMRec = _exitOlympus(fromToken, amountIn);
+        tokensRec = _fillQuote(OHM, toToken, OHMRec, swapTarget, swapData);
         require(tokensRec >= minToTokens, "High Slippage");
         uint256 totalGoodwillPortion;
         if (toToken == address(0)) {
@@ -1112,45 +1018,40 @@ contract OlympusZap is ZapBaseV2_2 {
         emit zapOut(msg.sender, toToken, tokensRec, affiliate);
     }
 
-    function _enterOlympus(
-        uint256 amount, 
-        address toToken
-    ) internal returns (uint256) {
-        _approveToken( OHM, staking, amount );
-        if ( toToken == wsOHM ) {
-            IStaking( staking ).stake(amount, address(this));
-            IStaking( staking ).claim( address(this) );
-            _approveToken( sOHM, wsOHM , amount);
-            uint256 beforeBalance = _getBalance( wsOHM  );
-            IwsOHM( wsOHM ).wrap( amount );
-            uint256 wsOHMRec = _getBalance( wsOHM  ) - beforeBalance;
-            IERC20( wsOHM ).safeTransfer(msg.sender, wsOHMRec);
+    function _enterOlympus(uint256 amount, address toToken) internal returns (uint256) {
+        _approveToken(OHM, staking, amount);
+        if (toToken == wsOHM) {
+            IStaking(staking).stake(amount, address(this));
+            IStaking(staking).claim(address(this));
+            _approveToken(sOHM, wsOHM, amount);
+            uint256 beforeBalance = _getBalance(wsOHM);
+            IwsOHM(wsOHM).wrap(amount);
+            uint256 wsOHMRec = _getBalance(wsOHM) - beforeBalance;
+            IERC20(wsOHM).safeTransfer(msg.sender, wsOHMRec);
             return wsOHMRec;
         }
-        IStaking( staking ).stake(amount, msg.sender);
-        IStaking( staking ).claim(msg.sender);
+        IStaking(staking).stake(amount, msg.sender);
+        IStaking(staking).claim(msg.sender);
         return amount;
     }
 
-    function _exitOlympus(
-        address fromToken, 
-        uint256 amount
-    ) internal returns (uint256){
+    function _exitOlympus(address fromToken, uint256 amount) internal returns (uint256) {
         if (fromToken == wsOHM) {
             uint256 sOHMRec = IwsOHM(wsOHM).unwrap(amount);
-            _approveToken(sOHM, address( staking ), sOHMRec);
-            IStaking( staking ).unstake(sOHMRec, true);
+            _approveToken(sOHM, address(staking), sOHMRec);
+            IStaking(staking).unstake(sOHMRec, true);
             return sOHMRec;
         }
-        _approveToken(sOHM, address( staking ), amount);
-        IStaking( staking ).unstake(amount, true);
+        _approveToken(sOHM, address(staking), amount);
+        IStaking(staking).unstake(amount, true);
         return amount;
     }
 
-    function removeLiquidityReturn(
-        address fromToken, 
-        uint256 fromAmount
-    ) external view returns (uint256 ohmAmount) {
+    function removeLiquidityReturn(address fromToken, uint256 fromAmount)
+        external
+        view
+        returns (uint256 ohmAmount)
+    {
         if (fromToken == sOHM) {
             return fromAmount;
         } else if (fromToken == wsOHM) {
@@ -1159,28 +1060,20 @@ contract OlympusZap is ZapBaseV2_2 {
     }
 
     ///////////// olympus only /////////////
-    
-    function update_OlympusDAO(
-        address _olympusDAO
-    ) external onlyOlympusDAO {
+
+    function update_OlympusDAO(address _olympusDAO) external onlyOlympusDAO {
         olympusDAO = _olympusDAO;
     }
 
-    function update_Staking(
-        address _staking
-    ) external onlyOlympusDAO {
+    function update_Staking(address _staking) external onlyOlympusDAO {
         staking = _staking;
     }
 
-    function update_sOHM(
-        address _sOHM
-    ) external onlyOlympusDAO {
-       sOHM = _sOHM;
+    function update_sOHM(address _sOHM) external onlyOlympusDAO {
+        sOHM = _sOHM;
     }
 
-    function update_wsOHM(
-        address _wsOHM
-    ) external onlyOlympusDAO {
+    function update_wsOHM(address _wsOHM) external onlyOlympusDAO {
         wsOHM = _wsOHM;
     }
 
@@ -1189,14 +1082,17 @@ contract OlympusZap is ZapBaseV2_2 {
         address[] calldata payoutTokens,
         address[] calldata depos
     ) external onlyOlympusDAO {
-        require( principals.length == depos.length  && depos.length == payoutTokens.length, "array param lengths must match" );
+        require(
+            principals.length == depos.length && depos.length == payoutTokens.length,
+            "array param lengths must match"
+        );
         // update depos for each principal
-        for ( uint i; i < principals.length; i++) {
-            principalToDepository[ principals[ i ] ][ payoutTokens[ i ] ] = depos[ i ];
+        for (uint256 i; i < principals.length; i++) {
+            principalToDepository[principals[i]][payoutTokens[i]] = depos[i];
             // max approve depo to save on gas
-            IERC20( principals[ i ] ).approve( depos[ i ], type( uint ).max );
+            IERC20(principals[i]).approve(depos[i], type(uint256).max);
             // set depo as an approved target
-            approvedTargets[ depos[ i ] ] = true;
+            approvedTargets[depos[i]] = true;
         }
     }
 }

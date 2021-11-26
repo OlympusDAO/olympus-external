@@ -24,7 +24,7 @@
 /// for fees.
 
 // SPDX-License-Identifier: GPL-2.0
-pragma solidity ^0.8.0;
+pragma solidity >=0.8.0;
 
 import "../interfaces/IERC20.sol";
 import "../interfaces/IERC20Metadata.sol";
@@ -34,15 +34,11 @@ import "./Context.sol";
 import "./Address.sol";
 import "./SafeERC20.sol";
 
-
 // Ownable left here as not to confuse Olympus's Ownable
 abstract contract Ownable is Context {
     address private _owner;
 
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
@@ -85,10 +81,7 @@ abstract contract Ownable is Context {
      * Can only be called by the current owner.
      */
     function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(
-            newOwner != address(0),
-            "Ownable: new owner is the zero address"
-        );
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
     }
@@ -98,8 +91,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     using SafeERC20 for IERC20;
     bool public stopped;
 
-    address private constant wethTokenAddress =
-        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address private constant wethTokenAddress = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     // if true, goodwill is not deducted
     mapping(address => bool) public feeWhitelist;
@@ -116,14 +108,12 @@ abstract contract ZapBaseV2_2 is Ownable {
     // swapTarget => approval status
     mapping(address => bool) public approvedTargets;
 
-    address internal constant ETHAddress =
-        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address internal constant ETHAddress = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    address internal constant ZapperAdmin =
-        0x3CE37278de6388532C3949ce4e886F365B14fB56;
+    address internal constant ZapperAdmin = 0x3CE37278de6388532C3949ce4e886F365B14fB56;
 
     // circuit breaker modifiers
-    modifier stopInEmergency {
+    modifier stopInEmergency() {
         require(!stopped, "Paused");
         _;
     }
@@ -165,12 +155,7 @@ abstract contract ZapBaseV2_2 is Ownable {
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
-        totalGoodwillPortion = _subtractGoodwill(
-            token,
-            amount,
-            affiliate,
-            enableGoodwill
-        );
+        totalGoodwillPortion = _subtractGoodwill(token, amount, affiliate, enableGoodwill);
 
         return amount - totalGoodwillPortion;
     }
@@ -181,11 +166,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param token The ERC20 token to transfer to this contract
     @return Quantity of tokens transferred to this contract
      */
-    function _pullTokens(address token, uint256 amount)
-        internal
-        virtual
-        returns (uint256)
-    {
+    function _pullTokens(address token, uint256 amount) internal virtual returns (uint256) {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         return amount;
@@ -244,11 +225,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param token The ERC20 token to check the balance of (0 address if ETH)
     @return balance This contract's token balance
      */
-    function _getBalance(address token)
-        internal
-        view
-        returns (uint256 balance)
-    {
+    function _getBalance(address token) internal view returns (uint256 balance) {
         if (token == address(0)) {
             balance = address(this).balance;
         } else {
@@ -289,10 +266,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param zapAddress The Zap caller which is allowed to bypass fees (if > 0)
     @param status The whitelisted status (true if whitelisted)
      */
-    function set_feeWhitelist(address zapAddress, bool status)
-        external
-        onlyOwner
-    {
+    function set_feeWhitelist(address zapAddress, bool status) external onlyOwner {
         feeWhitelist[zapAddress] = status;
     }
 
@@ -301,10 +275,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param _new_goodwill The new goodwill amount between 0-1%
      */
     function set_new_goodwill(uint256 _new_goodwill) public onlyOwner {
-        require(
-            _new_goodwill >= 0 && _new_goodwill <= 100,
-            "GoodWill Value not allowed"
-        );
+        require(_new_goodwill >= 0 && _new_goodwill <= 100, "GoodWill Value not allowed");
         goodwill = _new_goodwill;
     }
 
@@ -313,14 +284,8 @@ abstract contract ZapBaseV2_2 is Ownable {
     * to affiliates
     @param _new_affiliateSplit The new affiliate split between 0-1%
      */
-    function set_new_affiliateSplit(uint256 _new_affiliateSplit)
-        external
-        onlyOwner
-    {
-        require(
-            _new_affiliateSplit <= 100,
-            "Affiliate Split Value not allowed"
-        );
+    function set_new_affiliateSplit(uint256 _new_affiliateSplit) external onlyOwner {
+        require(_new_affiliateSplit <= 100, "Affiliate Split Value not allowed");
         affiliateSplit = _new_affiliateSplit;
     }
 
@@ -329,10 +294,7 @@ abstract contract ZapBaseV2_2 is Ownable {
     @param _affiliate The  affiliate's address
     @param _status The affiliate's approval status
      */
-    function set_affiliate(address _affiliate, bool _status)
-        external
-        onlyOwner
-    {
+    function set_affiliate(address _affiliate, bool _status) external onlyOwner {
         affiliates[_affiliate] = _status;
     }
 
@@ -349,9 +311,7 @@ abstract contract ZapBaseV2_2 is Ownable {
 
                 Address.sendValue(payable(owner()), qty);
             } else {
-                qty =
-                    IERC20(tokens[i]).balanceOf(address(this)) -
-                    totalAffiliateBalance[tokens[i]];
+                qty = IERC20(tokens[i]).balanceOf(address(this)) - totalAffiliateBalance[tokens[i]];
                 IERC20(tokens[i]).safeTransfer(owner(), qty);
             }
         }
@@ -366,9 +326,7 @@ abstract contract ZapBaseV2_2 is Ownable {
         for (uint256 i = 0; i < tokens.length; i++) {
             tokenBal = affiliateBalance[msg.sender][tokens[i]];
             affiliateBalance[msg.sender][tokens[i]] = 0;
-            totalAffiliateBalance[tokens[i]] =
-                totalAffiliateBalance[tokens[i]] -
-                tokenBal;
+            totalAffiliateBalance[tokens[i]] = totalAffiliateBalance[tokens[i]] - tokenBal;
 
             if (tokens[i] == ETHAddress) {
                 Address.sendValue(payable(msg.sender), tokenBal);
@@ -383,10 +341,10 @@ abstract contract ZapBaseV2_2 is Ownable {
     * swapTargets should be Zaps and must not be tokens!
     @param targets An array of addresses of approved swapTargets
     */
-    function setApprovedTargets(
-        address[] calldata targets,
-        bool[] calldata isApproved
-    ) external onlyOwner {
+    function setApprovedTargets(address[] calldata targets, bool[] calldata isApproved)
+        external
+        onlyOwner
+    {
         require(targets.length == isApproved.length, "Invalid Input length");
 
         for (uint256 i = 0; i < targets.length; i++) {
@@ -418,8 +376,7 @@ abstract contract ZapBaseV2_2 is Ownable {
                     token = ETHAddress;
                 }
 
-                uint256 affiliatePortion =
-                    (totalGoodwillPortion * affiliateSplit) / 100;
+                uint256 affiliatePortion = (totalGoodwillPortion * affiliateSplit) / 100;
                 affiliateBalance[affiliate][token] += affiliatePortion;
                 totalAffiliateBalance[token] += affiliatePortion;
             }
