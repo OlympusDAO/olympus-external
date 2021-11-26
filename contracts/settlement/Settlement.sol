@@ -6,11 +6,11 @@ import "./interfaces/IERC20.sol";
 import "./interfaces/ISettlement.sol";
 import "./interfaces/IBondDepository.sol";
 
+import "./libraries/SafeERC20.sol";
 import "./libraries/Orders.sol";
 import "./libraries/EIP712.sol";
 
 contract Settlement is ISettlement {
-
     using Orders for Orders.Order;
 
     using SafeERC20 for IERC20;
@@ -24,7 +24,6 @@ contract Settlement is ISettlement {
     mapping(address => mapping(bytes32 => bool)) public canceledHashes;
 
     mapping(bytes32 => uint256) public amountOfHashFilled;
-A
 
     //////////////////////// Init ////////////////////////
 
@@ -56,7 +55,14 @@ A
 
         // Check if the order is canceled / already fully filled
         bytes32 hash = args.order.hash();
-        _validateStatus(args, hash);
+
+        // validate status
+        require(args.order.deadline >= block.timestamp, "order-expired");
+        require(!canceledHashes[args.order.maker][hash], "order-canceled");
+        require(
+            amountOfHashFilled[hash] + args.amountToFill <= args.order.amount,
+            "already-filled"
+        );
 
         // Check if the signature is valid
         address signer = EIP712.recover(
@@ -93,31 +99,20 @@ A
 
     //////////////////////// Internal ////////////////////////
 
-    // Checks if an order is canceled / already fully filled
-    function _validateStatus(FillOrderArgs memory args, bytes32 hash) internal {
-        require(args.order.deadline >= block.timestamp, "order-expired");
-        require(!canceledHashes[args.order.maker][hash], "order-canceled");
-        require(
-            amountOfHashFilled[hash] + args.amountToFill <= args.order.amount,
-            "already-filled"
-        );
-    }
-
     // Handles depositing to depo for bond on behalf of depositor
     function _deposit(FillOrderArgs memory args) internal returns (uint256 dues) {
         // get principal from orders bond ID
-        IERC20 principal = bondDepository.bonds(args.order.BID);
+        IERC20 principal = bondDepository.bonds(args.order.BID).principal;
         // transfer makers tokens to the contract,
         // presumes maker has approved the contract
         principal.safeTransferFrom(args.order.maker, address(this), args.order.amount);
         // purchase bond for depositor
-        return
-            bondDepository.deposit(
-                args.order.amount,
-                args.order.maxBondPrice,
-                args.order.depositor,
-                args.order.BID,
-                args.order.FEO
-            );
+        (dues, ) = bondDepository.deposit(
+            args.order.amount,
+            args.order.maxBondPrice,
+            args.order.depositor,
+            args.order.BID,
+            args.order.FEO
+        );
     }
 }

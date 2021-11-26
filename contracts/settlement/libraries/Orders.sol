@@ -39,7 +39,7 @@ library Orders {
     }
 
     // TODO add olympus related require statements
-    function validate(Order memory order) internal {
+    function validate(Order memory order) internal pure {
         require(order.maker != address(0), "invalid-maker");
         require(order.depositor != address(0), "invalid-from-token");
         // require(order.principal != address( 0 ), "invalid-to-token");
