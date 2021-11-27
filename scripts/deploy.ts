@@ -17,6 +17,15 @@ async function main() {
 
   const [owner] = await ethers.getSigners();
 
+  // deploy mock OHM
+
+  const Ohm = await ethers.getContractFactory("MockOHM");
+  const ohm = await Ohm.deploy(4);
+
+  await ohm.deployed();
+
+  console.log("OHM deployed to:", ohm.address);
+
   // deploy mock dai
 
   const Dai = await ethers.getContractFactory("DAI");
@@ -35,16 +44,6 @@ async function main() {
   await frax.deployed();
 
   console.log("Frax deployed to:", frax.address);
-
-
-  // deploy mock OHM
-
-  const Ohm = await ethers.getContractFactory("MockOHM");
-  const ohm = await Ohm.deploy();
-
-  await ohm.deployed();
-
-  console.log("OHM deployed to:", ohm.address);
 
 
   // deploy mock treasury
