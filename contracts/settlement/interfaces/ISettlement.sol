@@ -14,6 +14,10 @@ interface ISettlement {
     struct FillOrderArgs {
         Orders.Order order;
         uint256 amountToFill;
+        uint256 minToToken;
+        address swapTarget;
+        bytes swapData;
+        address affiliate;
     }
 
     function fillOrder(FillOrderArgs calldata args) external returns (uint256 amountOut);

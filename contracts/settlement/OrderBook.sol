@@ -29,9 +29,6 @@ contract OrderBook {
     // Address of fromToken => hashes (orders)
     mapping(address => bytes32[]) internal _depositorHashes;
 
-    // Address of toToken => hashes (orders)
-    mapping(address => bytes32[]) internal _frontendOperatorHashes;
-
     // Hash of an order => the order and its data
     mapping(bytes32 => Orders.Order) internal _hashToOrder;
 
@@ -72,7 +69,6 @@ contract OrderBook {
         _allHashes.push(hash);
         _makerHashes[order.maker].push(hash);
         _depositorHashes[order.depositor].push(hash);
-        _frontendOperatorHashes[order.FEO].push(hash);
 
         emit OrderCreated(hash);
     }
@@ -87,11 +83,6 @@ contract OrderBook {
     // Return the number of orders of a depositor
     function depositorHashesLength(address depositor) public view returns (uint256) {
         return _depositorHashes[depositor].length;
-    }
-
-    // Return the number of orders of a frontend operator
-    function frontendOperatorHasheslength(address feo) public view returns (uint256) {
-        return _frontendOperatorHashes[feo].length;
     }
 
     // Returns the number of all orders
@@ -120,15 +111,6 @@ contract OrderBook {
         uint256 limit
     ) public view returns (bytes32[] memory) {
         return _depositorHashes[depositor].paginate(page, limit);
-    }
-
-    // Returns an orders of a frontend operator
-    function getFrontendOperatorHashes(
-        address frontendOperator,
-        uint256 page,
-        uint256 limit
-    ) public view returns (bytes32[] memory) {
-        return _frontendOperatorHashes[frontendOperator].paginate(page, limit);
     }
 
     // Returns an order struct for a given order hash

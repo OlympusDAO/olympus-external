@@ -5,6 +5,7 @@ pragma experimental ABIEncoderV2;
 import "./interfaces/IERC20.sol";
 import "./interfaces/ISettlement.sol";
 import "./interfaces/IBondDepository.sol";
+import "./interfaces/IOlympusZap_V1.sol";
 
 import "./libraries/SafeERC20.sol";
 import "./libraries/Orders.sol";
@@ -17,21 +18,19 @@ contract Settlement is ISettlement {
 
     //////////////////////// State ////////////////////////
 
-    IBondDepository public bondDepository;
+    IOlympusZap_V1 public zap;
 
     bytes32 public immutable DOMAIN_SEPARATOR;
 
+    mapping(bytes32 => uint256) public amountOfHashFilled;
+
     mapping(address => mapping(bytes32 => bool)) public canceledHashes;
 
-    mapping(bytes32 => uint256) public amountOfHashFilled;
+    mapping(address => mapping(address => IBondDepository)) public principalAndPayoutTokenToDepo;
 
     //////////////////////// Init ////////////////////////
 
-    constructor(
-        IBondDepository depo,
-        uint256 orderBookChainId,
-        address orderBookAddress
-    ) {
+    constructor(uint256 orderBookChainId, address orderBookAddress) {
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256(
@@ -43,7 +42,6 @@ contract Settlement is ISettlement {
                 orderBookAddress
             )
         );
-        bondDepository = depo;
     }
 
     //////////////////////// Relayer ////////////////////////
@@ -101,18 +99,47 @@ contract Settlement is ISettlement {
 
     // Handles depositing to depo for bond on behalf of depositor
     function _deposit(FillOrderArgs memory args) internal returns (uint256 dues) {
-        // get principal from orders bond ID
-        IERC20 principal = bondDepository.bonds(args.order.BID).principal;
-        // transfer makers tokens to the contract,
-        // presumes maker has approved the contract
-        principal.safeTransferFrom(args.order.maker, address(this), args.order.amount);
+        // interface depo
+        IBondDepository bondDepository = principalAndPayoutTokenToDepo[args.order.principal][
+            args.order.payoutToken
+        ];
+
+        if (args.order.zap) {
+            // transfer makers tokens to the contract,
+            // presumes maker has approved the contract
+            IERC20(args.order.zapInputToken).safeTransferFrom(
+                args.order.maker,
+                address(this),
+                args.order.amount
+            );
+
+            zap.ZapIn(
+                args.order.zapInputToken,
+                args.order.amount,
+                args.order.principal,
+                args.minToToken,
+                args.swapTarget,
+                args.swapData,
+                args.affiliate,
+                args.order.payoutToken,
+                args.order.maxBondPrice,
+                false
+            );
+        } else {
+            // transfer makers tokens to the contract,
+            // presumes maker has approved the contract
+            IERC20(args.order.principal).safeTransferFrom(
+                args.order.maker,
+                address(this),
+                args.order.amount
+            );
+        }
+
         // purchase bond for depositor
-        (dues, ) = bondDepository.deposit(
+        dues = bondDepository.deposit(
             args.order.amount,
             args.order.maxBondPrice,
-            args.order.depositor,
-            args.order.BID,
-            args.order.FEO
+            args.order.depositor
         );
     }
 }
