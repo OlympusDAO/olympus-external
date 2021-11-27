@@ -15,6 +15,17 @@ async function main() {
 
   // We get the contract to deploy
 
+
+  // deploy mock dai
+
+  const Dai = await ethers.getContractFactory("DAI");
+  const dai = await Dai.deploy(4);
+
+  await dai.deployed();
+
+  console.log("Greeter deployed to:", dai.address);
+
+
   // deploy mock frax
 
   const Frax = await ethers.getContractFactory("FRAX");
@@ -24,11 +35,28 @@ async function main() {
 
   console.log("Greeter deployed to:", frax.address);
 
+
+  // deploy mock OHM
+
+  const Ohm = await ethers.getContractFactory("MockOHM");
+  const ohm = await Ohm.deploy();
+
+  await ohm.deployed();
+
+  console.log("Greeter deployed to:", ohm.address);
+
+
   // deploy mock depo
 
   const Depo = await ethers.getContractFactory("MockOlympusBondDepository");
+
+  // address _OHM,
+  // address _principle,
+  // address _treasury,
+  // address _DAO,
+  // address _bondCalculator
   const depo = await Depo.deploy(
-    
+
   );
 
   await depo.deployed();
