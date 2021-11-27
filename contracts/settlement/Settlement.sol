@@ -18,6 +18,10 @@ contract Settlement is ISettlement {
 
     //////////////////////// State ////////////////////////
 
+    address public OlympusDAO;
+
+    address public pendingOlympusDAO;
+
     IOlympusZap_V1 public zap;
 
     bytes32 public immutable DOMAIN_SEPARATOR;
@@ -27,6 +31,13 @@ contract Settlement is ISettlement {
     mapping(address => mapping(bytes32 => bool)) public canceledHashes;
 
     mapping(address => mapping(address => IBondDepository)) public principalAndPayoutTokenToDepo;
+
+    //////////////////////// Modifers ////////////////////////
+
+    modifier onlyOlympusDAO() {
+        require(msg.sender == OlympusDAO, "UNAUTHORIZED");
+        _;
+    }
 
     //////////////////////// Init ////////////////////////
 
@@ -135,11 +146,38 @@ contract Settlement is ISettlement {
             );
         }
 
+        // MAKE SURE BOND DEPO IS APPROVED TO SPEND THIS CONTRACTS TOKENS
+
         // purchase bond for depositor
         dues = bondDepository.deposit(
             args.order.amount,
             args.order.maxBondPrice,
             args.order.depositor
         );
+    }
+
+    function setUpBondDepo(
+        address principal,
+        address payoutToken,
+        IBondDepository depo
+    ) external onlyOlympusDAO {
+        principalAndPayoutTokenToDepo[principal][payoutToken] = depo;
+
+        IERC20 _principal = IERC20(principal);
+
+        // check if tokens already approved, if not max approve
+        if (_principal.allowance(address(this), address(depo)) >= 0) {
+            _principal.approve(address(depo), type(uint256).max);
+        }
+    }
+
+    function pushOlympusDAO(address to, bool effectiveImmedietely) external onlyOlympusDAO {
+        if (effectiveImmedietely) OlympusDAO = to;
+        pendingOlympusDAO = to;
+    }
+
+    function pullOlympusDAO() external {
+        require(msg.sender == pendingOlympusDAO);
+        OlympusDAO = pendingOlympusDAO;
     }
 }

@@ -14,12 +14,32 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const Greeter = await ethers.getContractFactory("Greeter");
-  const greeter = await Greeter.deploy("Hello, Hardhat!");
 
-  await greeter.deployed();
+  // deploy mock frax
 
-  console.log("Greeter deployed to:", greeter.address);
+  const Frax = await ethers.getContractFactory("FRAX");
+  const frax = await Frax.deploy(4);
+
+  await frax.deployed();
+
+  console.log("Greeter deployed to:", frax.address);
+
+  // deploy mock depo
+
+  const Depo = await ethers.getContractFactory("MockOlympusBondDepository");
+  const depo = await Depo.deploy(
+    
+  );
+
+  await depo.deployed();
+
+  console.log("Greeter deployed to:", depo.address);
+
+  // deploy orderbook (on dif chain if possible)
+
+  // deploy settlement, passing in depo as param
+
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere
