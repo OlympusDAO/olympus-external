@@ -53,6 +53,8 @@ contract Settlement is ISettlement {
                 orderBookAddress
             )
         );
+
+        OlympusDAO = msg.sender;
     }
 
     //////////////////////// Relayer ////////////////////////

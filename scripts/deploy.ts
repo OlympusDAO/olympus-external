@@ -15,6 +15,7 @@ async function main() {
 
   // We get the contract to deploy
 
+  const [owner] = await ethers.getSigners();
 
   // deploy mock dai
 
@@ -23,7 +24,7 @@ async function main() {
 
   await dai.deployed();
 
-  console.log("Greeter deployed to:", dai.address);
+  console.log("Dai deployed to:", dai.address);
 
 
   // deploy mock frax
@@ -33,7 +34,7 @@ async function main() {
 
   await frax.deployed();
 
-  console.log("Greeter deployed to:", frax.address);
+  console.log("Frax deployed to:", frax.address);
 
 
   // deploy mock OHM
@@ -43,7 +44,17 @@ async function main() {
 
   await ohm.deployed();
 
-  console.log("Greeter deployed to:", ohm.address);
+  console.log("OHM deployed to:", ohm.address);
+
+
+  // deploy mock treasury
+
+  const Vault = await ethers.getContractFactory("MockOlympusTreasury");
+  const vault = await Vault.deploy();
+
+  await vault.deployed();
+
+  console.log("Treasury deployed to:", vault.address);
 
 
   // deploy mock depo
@@ -56,18 +67,34 @@ async function main() {
   // address _DAO,
   // address _bondCalculator
   const depo = await Depo.deploy(
-
+    ohm.address,
+    dai.address,
+    vault.address,
+    owner.address, // dunno
+    owner.address
   );
 
   await depo.deployed();
 
-  console.log("Greeter deployed to:", depo.address);
+  console.log("Depo deployed to:", depo.address);
 
   // deploy orderbook (on dif chain if possible)
 
+  const OrderBook = await ethers.getContractFactory("OrderBook");
+  const orderbook = await OrderBook.deploy();
+
+  await orderbook.deployed();
+
+  console.log("Orderbook deployed to:", orderbook.address);
+  
   // deploy settlement, passing in depo as param
 
+  const Settlement = await ethers.getContractFactory("Settlement");
+  const settlement = await Settlement.deploy(4, orderbook.address);
 
+  await settlement.deployed();
+
+  console.log("Settlement deployed to:", settlement.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
