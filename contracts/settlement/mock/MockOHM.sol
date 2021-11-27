@@ -16,11 +16,11 @@ abstract contract MockOHM {
                              METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    string public name;
+    string public name = "OHM";
 
-    string public symbol;
+    string public symbol = "OHM";
 
-    uint8 public immutable decimals;
+    uint8 public decimals = 18;
 
     /*///////////////////////////////////////////////////////////////
                               ERC20 STORAGE
@@ -51,15 +51,7 @@ abstract contract MockOHM {
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        uint8 _decimals
-    ) {
-        name = _name;
-        symbol = _symbol;
-        decimals = _decimals;
-
+    constructor() {
         INITIAL_CHAIN_ID = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
     }

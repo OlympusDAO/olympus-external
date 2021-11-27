@@ -50,7 +50,7 @@ async function main() {
   // deploy mock treasury
 
   const Vault = await ethers.getContractFactory("MockOlympusTreasury");
-  const vault = await Vault.deploy();
+  const vault = await Vault.deploy(ohm.address, dai.address, frax.address, 0);
 
   await vault.deployed();
 
