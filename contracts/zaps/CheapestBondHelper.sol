@@ -1,56 +1,71 @@
 // SPDX-License-Identifier: GPL-2.0
-pragma solidity 0.7.5;
+pragma solidity ^0.8.0;
 
-interface IDepository {
-    function bondPriceInUSD() external view returns (uint price_);
-    function principle() external view returns (address);
-}
+import "./interfaces/IBondDepoV2.sol";
 
 contract CheapestBondHelper {
+    ////////////////////////// STORAGE //////////////////////////
 
-    //////////////// State ////////////////
+    /// @notice used for access control
+    address public olympusDAO = msg.sender;
 
-    IDepository[] public depos;
+    /// @notice needed since we can't access IDS length in v2 bond depo
+    mapping(address => uint16) public principalToBID;
 
-    address public OlympusDAO;
+    /// @notice stores all principals for ohm depo
+    address[] public principals;
 
-    //////////////// Init ////////////////
+    /// @notice V2 olympus bond depository
+    address public depov2;
 
-    constructor (IDepository[] memory _depos) {
-        depos = _depos;
+    ////////////////////////// MODIFIERS //////////////////////////
 
-        OlympusDAO = msg.sender;
+    modifier onlyOlympusDAO() {
+        require(msg.sender == olympusDAO, "Only OlympusDAO");
+        _;
     }
 
+    ////////////////////////// CONSTRUCTOR //////////////////////////
 
-    ///////////// Policy Only /////////////
-
-    function update_Depos(IDepository[] memory _depos) external {
-        require(msg.sender == OlympusDAO);
-        depos = _depos;
+    constructor(address[] memory _principals) {
+        principals = _principals;
     }
 
-    function pushOwnership(address who) external {
-        require(msg.sender == OlympusDAO);
-        OlympusDAO = who;
-    }
+    ////////////////////////// PUBLIC VIEW //////////////////////////
 
-    //////////////// Public ////////////////
-
-    function getCheapestBond() external view returns (IDepository cheapestDepo, address principle) {
-
+    /// @notice returns (cheap bond ID, principal)
+    function getCheapestBID() external view returns (uint16, address) {
+        // set cheapest price to a very large number so we can check against it
         uint256 cheapestPrice = type(uint256).max;
+        uint16 cheapestBID;
+        address cheapestPrincipal;
 
-        for (uint256 i; i < depos.length; i++) {
+        for (uint256 i; i < principals.length; i++) {
+            uint16 BID = principalToBID[principals[i]];
+            uint256 price = IBondDepoV2(depov2).bondPriceInUSD(BID);
 
-            uint256 price = depos[i].bondPriceInUSD();
-            
+            // TODO check if bonds are sold out for given principal
+
             if (price <= cheapestPrice) {
                 cheapestPrice = price;
-                cheapestDepo = depos[i];
+                cheapestBID = BID;
+                cheapestPrincipal = principals[i];
             }
         }
+        return (cheapestBID, cheapestPrincipal);
+    }
 
-        principle = cheapestDepo.principle();
+    ////////////////////////// ONLY OLYMPUS //////////////////////////
+
+    function update_OlympusDAO(address _newOlympusDAO) external onlyOlympusDAO {
+        olympusDAO = _newOlympusDAO;
+    }
+
+    function update_principalToBondId(address _principal, uint16 _bondId) external onlyOlympusDAO {
+        principalToBID[_principal] = _bondId;
+    }
+
+    function update_principals(address[] memory _principals) external onlyOlympusDAO {
+        principals = _principals;
     }
 }
