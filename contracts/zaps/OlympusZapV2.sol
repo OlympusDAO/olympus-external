@@ -109,7 +109,6 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
     /// @param swapData DEX or Zap data. Must swap to ibToken underlying address
     /// @param affiliate Affiliate address
     /// @param maxBondSlippage Max price for a bond denominated in toToken/principal. Ignored if not bonding.
-    /// @param bond if toToken is being used to purchase a bond.
     /// @return OHMRec quantity of sOHM or gOHM  received (depending on toToken)
     /// or the quantity OHM vesting (if bond is true)
     function ZapIn(
@@ -120,15 +119,25 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
         address swapTarget,
         bytes calldata swapData,
         address affiliate,
-        uint256 maxBondSlippage, // in bips, ignored if not bonding
-        address feo, // front end operator, ignored if not bonding
-        bool bond
-    ) external payable stopInEmergency returns (uint256 OHMRec) {
+        uint256 maxBondSlippage // in bips, ignored if not bonding
+    )
+        external
+        payable
+        // address feo // front end operator, ignored if not bonding
+        stopInEmergency
+        returns (uint256 OHMRec)
+    {
+        bool bond = maxBondSlippage > 0;
+        // Update bond, maxBondSlippage determine if user is purchasing a bond
+
         if (bond) {
             // pull users fromToken
             uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
+
             (uint16 bid, address principal) = cheapestBondHelper.getCheapestBID();
+
             // swap fromToken -> cheapest bond principal
+
             uint256 tokensBought = _fillQuote(
                 fromToken,
                 principal, // to token
@@ -136,6 +145,7 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
                 swapTarget,
                 swapData
             );
+
             // purchase bond
             (OHMRec, ) = IBondDepoV2(depo).deposit(
                 msg.sender, // depositor
@@ -145,7 +155,7 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
                 (IBondDepoV2(depo).bondPrice(bid) * maxBondSlippage) /
                     1e4 +
                     IBondDepoV2(depo).bondPrice(bid),
-                feo
+                affiliate
             );
             // emit zapIn
             emit zapIn(msg.sender, toToken, OHMRec, affiliate);
