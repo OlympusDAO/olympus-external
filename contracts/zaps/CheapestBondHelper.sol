@@ -16,7 +16,7 @@ contract CheapestBondHelper {
     address[] public principals;
 
     /// @notice V2 olympus bond depository
-    address public depov2;
+    IBondDepoV2 public depov2;
 
     ////////////////////////// MODIFIERS //////////////////////////
 
@@ -27,8 +27,9 @@ contract CheapestBondHelper {
 
     ////////////////////////// CONSTRUCTOR //////////////////////////
 
-    constructor(address[] memory _principals) {
+    constructor(address[] memory _principals, IBondDepoV2 _depov2) {
         principals = _principals;
+        depov2 = _depov2;
     }
 
     ////////////////////////// PUBLIC VIEW //////////////////////////
@@ -44,16 +45,25 @@ contract CheapestBondHelper {
             uint16 BID = principalToBID[principals[i]];
             uint256 price = IBondDepoV2(depov2).bondPriceInUSD(BID);
 
-            // TODO check if bonds are sold out for given principal
-
-            if (price <= cheapestPrice) {
+            if (price <= cheapestPrice && _isBondable(BID)) {
                 cheapestPrice = price;
                 cheapestBID = BID;
                 cheapestPrincipal = principals[i];
             }
         }
+        
         return (cheapestBID, cheapestPrincipal);
     }
+
+    function _isBondable(uint16 _BID) public view returns (bool) {
+        (,,uint256 totalDebt_,) = depov2.bondInfo(_BID);
+        (,,,,uint256 maxDebt_) = depov2.bondTerms(_BID);
+
+        bool soldOut = totalDebt_ == maxDebt_;
+
+        return !soldOut;
+    }
+
 
     ////////////////////////// ONLY OLYMPUS //////////////////////////
 
