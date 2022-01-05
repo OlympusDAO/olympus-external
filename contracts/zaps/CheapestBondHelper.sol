@@ -7,7 +7,7 @@ contract CheapestBondHelper {
     ////////////////////////// STORAGE //////////////////////////
 
     /// @notice used for access control
-    address public olympusDAO = msg.sender;
+    address public olympusDAO;
 
     /// @notice needed since we can't access IDS length in v2 bond depo
     mapping(address => uint16) public principalToBID;
@@ -27,9 +27,15 @@ contract CheapestBondHelper {
 
     ////////////////////////// CONSTRUCTOR //////////////////////////
 
-    constructor(address[] memory _principals, IBondDepoV2 _depov2) {
+    constructor(
+        address[] memory _principals, 
+        IBondDepoV2 _depov2
+    ) {
         principals = _principals;
         depov2 = _depov2;
+        // access control set to deployer temporarily
+        // so that we can setup state.
+        olympusDAO = msg.sender;
     }
 
     ////////////////////////// PUBLIC VIEW //////////////////////////
