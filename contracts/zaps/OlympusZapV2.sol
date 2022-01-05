@@ -120,12 +120,7 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
         bytes calldata swapData,
         address affiliate,
         uint256 maxBondSlippage // in bips, used to determine if user is bonding (negates the need for another param)
-    )
-        external
-        payable
-        stopInEmergency
-        returns (uint256 OHMRec)
-    {
+    ) external payable stopInEmergency returns (uint256 OHMRec) {
         // Update bond, maxBondSlippage determine if user is purchasing a bond
         bool bond = maxBondSlippage > 0;
 
@@ -152,7 +147,9 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
                 bid,
                 tokensBought,
                 // bond price * slippage % + bond price
-                (IBondDepoV2(depo).bondPrice(bid) * maxBondSlippage) / 1e4 + IBondDepoV2(depo).bondPrice(bid),
+                (IBondDepoV2(depo).bondPrice(bid) * maxBondSlippage) /
+                    1e4 +
+                    IBondDepoV2(depo).bondPrice(bid),
                 affiliate
             );
             // emit zapIn
@@ -223,15 +220,14 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
             _approvalCheck(OHM, staking, amount);
             // stake OHM -> gOHM
             IStaking(staking).stake(address(this), amount, false, false);
-            IStaking(staking).claim(address(this), false);
-            return gOHMRec;
+            return IStaking(staking).claim(address(this), false);
         }
         // max approve staking for OHM if needed
         _approvalCheck(OHM, staking, amount);
         // stake OHM -> sOHM
         IStaking(staking).stake(msg.sender, amount, true, false);
         IStaking(staking).claim(msg.sender, false);
-        
+
         return amount;
     }
 
@@ -247,7 +243,7 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
         _approvalCheck(sOHM, staking, amount);
         // otherwise unstaake sOHM -> OHM
         IStaking(staking).unstake(msg.sender, amount, true, false);
-        
+
         return amount;
     }
 
@@ -281,10 +277,7 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
     }
 
     /// @notice update max approvals for tokens to reduce user gas cost
-    function update_approvals(
-        IERC20[] memory _tokens,
-        address _target
-    ) external onlyOlympusDAO {
+    function update_approvals(IERC20[] memory _tokens, address _target) external onlyOlympusDAO {
         for (uint256 i; i < _tokens.length; i++) {
             _tokens[i].approve(_target, type(uint256).max);
         }
@@ -301,13 +294,17 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
     ////////////////////////// INTERNAL HELPERS //////////////////////////
 
     /// @notice max approves target to spend token if not already approved
-    function _approvalCheck(IERC20 _token, address _target, uint256 _amount) internal {
+    function _approvalCheck(
+        address _token,
+        address _target,
+        uint256 _amount
+    ) internal {
         // check if target is approve to spend token for amount
-        bool approved = _token.allowance(address(this), _target, _amount) > _amount;
+        bool approved = IERC20(_token).allowance(address(this), _target) > _amount;
         // if not approved
         if (!approved) {
             // max approve target
-            _token.approve(_target, type(uint256).max);
+            IERC20(_token).approve(_target, type(uint256).max);
         }
     }
 }
