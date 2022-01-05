@@ -32,7 +32,7 @@ import "./interfaces/IgOHM.sol";
 
 import "./libraries/ZapBaseV2_2.sol";
 
-contract Olympus_Zap_V2 is ZapBaseV2_2 {
+contract Olympus_V2_Zap_V2 is ZapBaseV2_2 {
     using SafeERC20 for IERC20;
 
     ////////////////////////// STORAGE //////////////////////////
