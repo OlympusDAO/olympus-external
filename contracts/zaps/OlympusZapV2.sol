@@ -43,11 +43,11 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
 
     address public staking;
 
-    address public OHM;
+    address public immutable OHM;
 
-    address public sOHM;
+    address public immutable sOHM;
 
-    address public gOHM;
+    address public immutable gOHM;
 
     ICheapestBondHelper public cheapestBondHelper;
 
@@ -261,21 +261,6 @@ contract Olympus_Zap_V2 is ZapBaseV2_2 {
     /// @notice update state for depo
     function update_Depo(address _depo) external onlyOlympusDAO {
         depo = _depo;
-    }
-
-    /// @notice update state for OHM
-    function update_OHM(address _OHM) external onlyOlympusDAO {
-        OHM = _OHM;
-    }
-
-    /// @notice update state for sOHM
-    function update_sOHM(address _sOHM) external onlyOlympusDAO {
-        sOHM = _sOHM;
-    }
-
-    /// @notice update state for gOHM
-    function update_gOHM(address _gOHM) external onlyOlympusDAO {
-        gOHM = _gOHM;
     }
 
     /// @notice update state for gOHM
