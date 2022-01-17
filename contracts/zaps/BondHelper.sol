@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./interfaces/IBondDepoV2.sol";
 
-contract CheapestBondHelper {
+contract BondHelper {
     ////////////////////////// STORAGE //////////////////////////
 
     /// @notice used for access control
@@ -27,10 +27,7 @@ contract CheapestBondHelper {
 
     ////////////////////////// CONSTRUCTOR //////////////////////////
 
-    constructor(
-        address[] memory _principals, 
-        IBondDepoV2 _depov2
-    ) {
+    constructor(address[] memory _principals, IBondDepoV2 _depov2) {
         principals = _principals;
         depov2 = _depov2;
         // access control set to deployer temporarily
@@ -57,19 +54,20 @@ contract CheapestBondHelper {
                 cheapestPrincipal = principals[i];
             }
         }
-        
+
         return (cheapestBID, cheapestPrincipal);
     }
 
+    function getBID(address principal) external view returns (uint16) {}
+
     function _isBondable(uint16 _BID) public view returns (bool) {
-        (,,uint256 totalDebt_,) = depov2.bondInfo(_BID);
-        (,,,,uint256 maxDebt_) = depov2.bondTerms(_BID);
+        (, , uint256 totalDebt_, ) = depov2.bondInfo(_BID);
+        (, , , , uint256 maxDebt_) = depov2.bondTerms(_BID);
 
         bool soldOut = totalDebt_ == maxDebt_;
 
         return !soldOut;
     }
-
 
     ////////////////////////// ONLY OLYMPUS //////////////////////////
 
