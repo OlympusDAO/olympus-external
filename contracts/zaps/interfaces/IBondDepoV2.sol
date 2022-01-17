@@ -1,7 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
 interface IBondDepoV2 {
-
     /**
      * @notice deposit bond
      * @param _depositor address
@@ -21,44 +21,44 @@ interface IBondDepoV2 {
     ) external returns (uint256 payout_, uint16 index_);
 
     function bondPrice(uint16 _bid) external view returns (uint256);
-    
+
     function bondPriceInUSD(uint16 _bid) external view returns (uint256);
 
-  /**
-   * @notice returns data about a bond type
-   * @param _BID uint
-   * @return principal_ address
-   * @return calculator_ address
-   * @return totalDebt_ uint
-   * @return lastBondCreatedAt_ uint
-   */
-  function bondInfo(uint256 _BID)
-    external
-    view
-    returns (
-      address principal_,
-      address calculator_,
-      uint256 totalDebt_,
-      uint256 lastBondCreatedAt_
-    );
+    /**
+     * @notice returns data about a bond type
+     * @param _BID uint
+     * @return principal_ address
+     * @return calculator_ address
+     * @return totalDebt_ uint
+     * @return lastBondCreatedAt_ uint
+     */
+    function bondInfo(uint256 _BID)
+        external
+        view
+        returns (
+            address principal_,
+            address calculator_,
+            uint256 totalDebt_,
+            uint256 lastBondCreatedAt_
+        );
 
-  /**
-   * @notice returns terms for a bond type
-   * @param _BID uint
-   * @return controlVariable_ uint
-   * @return vestingTerm_ uint
-   * @return minimumPrice_ uint
-   * @return maxPayout_ uint
-   * @return maxDebt_ uint
-   */
-  function bondTerms(uint256 _BID)
-    external
-    view
-    returns (
-      uint256 controlVariable_,
-      uint256 vestingTerm_,
-      uint256 minimumPrice_,
-      uint256 maxPayout_,
-      uint256 maxDebt_
-    );
+    /**
+     * @notice returns terms for a bond type
+     * @param _BID uint
+     * @return controlVariable_ uint
+     * @return vestingTerm_ uint
+     * @return minimumPrice_ uint
+     * @return maxPayout_ uint
+     * @return maxDebt_ uint
+     */
+    function bondTerms(uint256 _BID)
+        external
+        view
+        returns (
+            uint256 controlVariable_,
+            uint256 vestingTerm_,
+            uint256 minimumPrice_,
+            uint256 maxPayout_,
+            uint256 maxDebt_
+        );
 }
