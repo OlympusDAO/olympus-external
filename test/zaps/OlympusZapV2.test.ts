@@ -11,22 +11,22 @@ import { getSwapQuote } from "../../libs/quote/swap/swap";
 import { approveToken, getBalance } from "../../libs/token/token.helper";
 import { exchangeAndApprove } from "../../libs/exchange/exchange.helper";
 
-import { IBondDepository, OlympusV2ZapV2 } from "../../typechain";
+import { IBondDepository, OlympusV2ZapV1 } from "../../typechain";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { getZapInQuote } from "../../libs/quote/zap/zap";
 import protocol from "../../libs/quote/zap/protocol";
 
-import { CheapestBondHelper } from "../../typechain";
+import { BondHelper } from "../../typechain";
 
 chai.use(solidity);
 const { expect } = chai;
 
-const OlympusZapArtifact = "Olympus_V2_Zap_V2";
-const CheapestBondHelperArtifact = "CheapestBondHelper";
+const OlympusZapArtifact = "Olympus_V2_Zap_V1";
+const BondHelperArtifact = "BondHelper";
 
 describe("OlympusDAO Zap", () => {
-  let ohmZap: OlympusV2ZapV2;
-  let cheapestBondHelper: CheapestBondHelper;
+  let ohmZap: OlympusV2ZapV1;
+  let bondHelper: BondHelper;
 
   let deployer: SignerWithAddress;
   let user: SignerWithAddress;
@@ -46,34 +46,33 @@ describe("OlympusDAO Zap", () => {
     await network.provider.request({
       method: "hardhat_impersonateAccount",
       params: [OlympusDAO.address],
-    });
-    zapperAdmin = await ethers.provider.getSigner(zapperAdminAddress);
+    });    
 
-    cheapestBondHelper = await ethers
-      .getContractFactory(CheapestBondHelperArtifact, deployer)
+    bondHelper = await ethers
+      .getContractFactory(BondHelperArtifact, deployer)
       .then(async factory => {
         return (await factory.deploy(
           [address.sushiswap.OHM_DAI],
-          address.ohm.OHM_DAI_DEPO, //
-        )) as CheapestBondHelper;
+          address.ohm.DEPO_V2, //
+        )) as BondHelper;
       });
 
     ohmZap = await ethers.getContractFactory(OlympusZapArtifact, deployer).then(async factory => {
       return (await factory.deploy(
         OlympusDAO.address,
-        address.ohm.OHM_DAI_DEPO, //TODO: Get correct BondDepoV2 address
+        address.ohm.DEPO_V2, 
         stakingAddress,
         address.tokens.OHM,
         address.tokens.sOHM,
         address.tokens.gOHM,
         0,
         0,
-        cheapestBondHelper.address,
-      )) as OlympusV2ZapV2;
+        bondHelper.address,
+      )) as OlympusV2ZapV1;
     });
   });
 
-  describe("ZapIn", () => {
+  describe("ZapStake", () => {
     context("to sOHM", () => {
       it("should ZapIn to sOHM using ETH", async () => {
         const amountIn = utils.parseEther("1");
@@ -85,14 +84,13 @@ describe("OlympusDAO Zap", () => {
 
         await ohmZap
           .connect(user)
-          .ZapIn(
+          .ZapStake(
             fromToken,
             amountIn,
             toToken,
             1,
             to,
-            data,
-            constants.AddressZero,
+            data,            
             constants.AddressZero,
             { value: amountIn },
           );
