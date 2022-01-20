@@ -239,7 +239,7 @@ abstract contract ZapBaseV3 is Ownable {
     @param spender The spender of the token
      */
     function _approveToken(address token, address spender) internal {
-        if (token == address(0)) return;
+        if (token == address(0) || spender == address(0)) return;
         IERC20 _token = IERC20(token);
         if (_token.allowance(address(this), spender) > 0) return;
         else {
@@ -258,7 +258,7 @@ abstract contract ZapBaseV3 is Ownable {
         address spender,
         uint256 amount
     ) internal {
-        if (token == address(0)) return;
+        if (token == address(0) || spender == address(0)) return;
         IERC20(token).safeApprove(spender, 0);
         IERC20(token).safeApprove(spender, amount);
     }

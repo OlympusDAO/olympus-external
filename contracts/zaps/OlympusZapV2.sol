@@ -189,20 +189,30 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
     ////////////////////////// INTERNAL //////////////////////////
 
     function _enterOlympus(uint256 amount, address toToken) internal returns (uint256) {
+        uint256 claimedTokens;
+
         if (toToken == gOHM) {
             // max approve staking for OHM if needed
             _approveToken(OHM, staking, amount);
             // stake OHM -> gOHM
             IStaking(staking).stake(address(this), amount, false, false);
-            return IStaking(staking).claim(address(this), false);
+            claimedTokens = IStaking(staking).claim(address(this), false);
+
+            IERC20(toToken).safeTransfer(msg.sender, claimedTokens);
+
+            return claimedTokens;
         }
+
         // max approve staking for OHM if needed
         _approveToken(OHM, staking, amount);
         // stake OHM -> sOHM
-        IStaking(staking).stake(msg.sender, amount, true, false);
-        IStaking(staking).claim(msg.sender, false);
 
-        return amount;
+        IStaking(staking).stake(address(this), amount, true, false);
+        claimedTokens = IStaking(staking).claim(address(this), true);
+
+        IERC20(toToken).safeTransfer(msg.sender, claimedTokens);
+
+        return claimedTokens;
     }
 
     function removeLiquidityReturn(address fromToken, uint256 fromAmount)

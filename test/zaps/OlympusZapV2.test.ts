@@ -98,131 +98,127 @@ describe("OlympusDAO Zap", () => {
         expect(finalBalance).to.be.gt(initialBalance);
       });
 
-      //     it("should ZapIn to sOHM using DAI", async () => {
-      //       const fromETH = utils.parseEther("1");
-      //       const fromToken = DAI;
-      //       const toToken = sOHM;
+          it("should ZapIn to sOHM using DAI", async () => {
+            const fromETH = utils.parseEther("1");
+            const fromToken = DAI;
+            const toToken = sOHM;
 
-      //       const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
-      //       const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
+            const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
+            const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
 
-      //       const initialBalance = await getBalance(toToken, user.address);
-      //       await ohmZap
-      //         .connect(user)
-      //         .ZapIn(
-      //           fromToken,
-      //           amountIn,
-      //           toToken,
-      //           1,
-      //           to,
-      //           data,
-      //           constants.AddressZero,
-      //           constants.AddressZero,
-      //         );
-      //       const finalBalance = await getBalance(toToken, user.address);
-      //       expect(finalBalance).to.be.gt(initialBalance);
-      //     });
+            const initialBalance = await getBalance(toToken, user.address);
+            await ohmZap
+              .connect(user)
+              .ZapStake(
+                fromToken,
+                amountIn,
+                toToken,
+                1,
+                to,
+                data,
+                constants.AddressZero                
+              );
+            const finalBalance = await getBalance(toToken, user.address);
+            expect(finalBalance).to.be.gt(initialBalance);
+          });
 
-      //     it("should ZapIn to sOHM using OHM", async () => {
-      //       const fromETH = utils.parseEther("1");
-      //       const fromToken = OHM;
-      //       const toToken = sOHM;
+          it("should ZapIn to sOHM using OHM", async () => {
+            const fromETH = utils.parseEther("1");
+            const fromToken = OHM;
+            const toToken = sOHM;
 
-      //       const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
-      //       const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
+            const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
+            const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);            
 
-      //       const initialBalance = await getBalance(toToken, user.address);
-      //       await ohmZap
-      //         .connect(user)
-      //         .ZapIn(
-      //           fromToken,
-      //           amountIn,
-      //           toToken,
-      //           1,
-      //           to,
-      //           data,
-      //           constants.AddressZero,
-      //           constants.AddressZero,
-      //         );
-      //       const finalBalance = await getBalance(toToken, user.address);
-      //       expect(finalBalance).to.be.gt(initialBalance);
-      //     });
-      //   });
+            const initialBalance = await getBalance(toToken, user.address);
+            await ohmZap
+              .connect(user)
+              .ZapStake(
+                fromToken,
+                amountIn,
+                toToken,
+                1,
+                to,
+                data,
+                constants.AddressZero,                
+              );
+            const finalBalance = await getBalance(toToken, user.address);
+            expect(finalBalance).to.be.gt(initialBalance);
+          });
+        });
 
-      //   context("to gOHM", () => {
-      //     it("should ZapIn to gOHM using ETH", async () => {
-      //       const amountIn = utils.parseEther("1");
-      //       const fromToken = ETH;
-      //       const toToken = gOHM;
+        context("to gOHM", () => {
+          it("should ZapIn to gOHM using ETH", async () => {
+            const amountIn = utils.parseEther("1");
+            const fromToken = ETH;
+            const toToken = gOHM;
 
-      //       const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
+            const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
 
-      //       const initialBalance = await getBalance(toToken, user.address);
-      //       await ohmZap
-      //         .connect(user)
-      //         .ZapIn(
-      //           fromToken,
-      //           amountIn,
-      //           toToken,
-      //           1,
-      //           to,
-      //           data,
-      //           constants.AddressZero,
-      //           constants.AddressZero,
-      //         );
-      //       const finalBalance = await getBalance(toToken, user.address);
-      //       expect(finalBalance).to.be.gt(initialBalance);
-      //     });
+            const initialBalance = await getBalance(toToken, user.address);
+            await ohmZap
+              .connect(user)
+              .ZapStake(
+                fromToken,
+                amountIn,
+                toToken,
+                1,
+                to,
+                data,
+                constants.AddressZero,
+                { value: amountIn },                
+              );
+            const finalBalance = await getBalance(toToken, user.address);
+            expect(finalBalance).to.be.gt(initialBalance);
+          });
 
-      //     it("should ZapIn to gOHM using DAI", async () => {
-      //       const fromETH = utils.parseEther("1");
-      //       const fromToken = DAI;
-      //       const toToken = gOHM;
+          it("should ZapIn to gOHM using DAI", async () => {
+            const fromETH = utils.parseEther("1");
+            const fromToken = DAI;
+            const toToken = gOHM;
 
-      //       const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
-      //       const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
+            const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
+            const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
 
-      //       const initialBalance = await getBalance(toToken, user.address);
-      //       await ohmZap
-      //         .connect(user)
-      //         .ZapIn(
-      //           fromToken,
-      //           amountIn,
-      //           toToken,
-      //           1,
-      //           to,
-      //           data,
-      //           constants.AddressZero,
-      //           constants.AddressZero,
-      //         );
-      //       const finalBalance = await getBalance(toToken, user.address);
-      //       expect(finalBalance).to.be.gt(initialBalance);
-      //     });
+            const initialBalance = await getBalance(toToken, user.address);
+            await ohmZap
+              .connect(user)
+              .ZapStake(
+                fromToken,
+                amountIn,
+                toToken,
+                1,
+                to,
+                data,
+                constants.AddressZero,                
+              );
+            const finalBalance = await getBalance(toToken, user.address);
+            expect(finalBalance).to.be.gt(initialBalance);
+          });
 
-      //     it("should ZapIn to gOHM using OHM", async () => {
-      //       const fromETH = utils.parseEther("1");
-      //       const fromToken = OHM;
-      //       const toToken = gOHM;
+          it("should ZapIn to gOHM using OHM", async () => {
+            const fromETH = utils.parseEther("1");
+            const fromToken = OHM;
+            const toToken = gOHM;
 
-      //       const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
-      //       const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
+            const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
+            const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
 
-      //       const initialBalance = await getBalance(toToken, user.address);
-      //       await ohmZap
-      //         .connect(user)
-      //         .ZapIn(
-      //           fromToken,
-      //           amountIn,
-      //           toToken,
-      //           1,
-      //           to,
-      //           data,
-      //           constants.AddressZero,
-      //           constants.AddressZero,
-      //         );
-      //       const finalBalance = await getBalance(toToken, user.address);
-      //       expect(finalBalance).to.be.gt(initialBalance);
-      //     });
+            const initialBalance = await getBalance(toToken, user.address);
+            await ohmZap
+              .connect(user)
+              .ZapStake(
+                fromToken,
+                amountIn,
+                toToken,
+                1,
+                to,
+                data,
+                constants.AddressZero,                
+              );
+            const finalBalance = await getBalance(toToken, user.address);
+            expect(finalBalance).to.be.gt(initialBalance);
+          });
     });
   });
 
