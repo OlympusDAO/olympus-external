@@ -58,7 +58,12 @@ contract BondHelper {
         return (cheapestBID, cheapestPrincipal);
     }
 
-    function getBID(address principal) external view returns (uint16) {}
+    function getBID(address principal) external view returns (uint16) {
+        uint16 BID = principalToBID[principal];
+        if (_isBondable(BID)) return BID;
+
+        revert("Unsupported principal");
+    }
 
     function _isBondable(uint16 _BID) public view returns (bool) {
         (, , uint256 totalDebt_, ) = depov2.bondInfo(_BID);

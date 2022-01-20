@@ -161,7 +161,7 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         }
         // make sure "swapTarget" is approved to spend this contracts "fromToken"
         _approveToken(fromToken, swapTarget, toInvest);
-        // swap fromToken -> cheapest bond principal
+        // swap fromToken -> bond principal
         uint256 tokensBought = _fillQuote(
             fromToken,
             principal, // to token
