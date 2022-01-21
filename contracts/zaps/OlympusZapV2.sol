@@ -24,7 +24,6 @@
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
 
-import "./interfaces/IBondHelper.sol";
 import "./interfaces/IBondDepoV2.sol";
 import "./interfaces/IStakingV2.sol";
 import "./interfaces/IsOHMv2.sol";
@@ -48,12 +47,13 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
 
     address public immutable gOHM;
 
-    IBondHelper public bondHelper;
-
     ////////////////////////// EVENTS //////////////////////////
 
     // Emitted when `sender` Zaps In
     event zapIn(address sender, address token, uint256 tokensRec, address affiliate);
+
+    // Emitted when `sender` Zaps Bond
+    event zapBond(address sender, address token, uint256 tokensRec, address affiliate);
 
     // Emitted when `sender` Zaps Out
     event zapOut(address sender, address token, uint256 tokensRec, address affiliate);
@@ -75,8 +75,7 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         address _sOHM,
         address _gOHM,
         uint256 _goodwill,
-        uint256 _affiliateSplit,
-        IBondHelper _bondHelper
+        uint256 _affiliateSplit
     ) ZapBaseV3(_goodwill, _affiliateSplit) {
         // 0x Proxy
         approvedTargets[0xDef1C0ded9bec7F1a1670819833240f027b25EfF] = true;
@@ -91,7 +90,6 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         OHM = _OHM;
         sOHM = _sOHM;
         gOHM = _gOHM;
-        bondHelper = _bondHelper;
 
         transferOwnership(_olympusDAO);
     }
@@ -137,7 +135,7 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
     /// @param swapData DEX or Zap data. Must swap to ibToken underlying address
     /// @param affiliate Affiliate address
     /// @param maxBondSlippage Max price for a bond denominated in toToken/principal
-    /// @param useCheapestBond Automatically find the cheapest bond to use to acquire bond
+    /// @param bondId BondId to use to acquire bond
     /// @return OHMRec quantity of sOHM or gOHM  received (depending on toToken)
     /// or the quantity OHM vesting (if bond is true)
     function ZapBond(
@@ -148,17 +146,11 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         bytes calldata swapData,
         address affiliate,
         uint256 maxBondSlippage, // in bips
-        bool useCheapestBond
+        uint16 bondId
     ) external payable stopInEmergency returns (uint256 OHMRec) {
         // pull users fromToken
         uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
-        // fetch cheapest BID in terms of USD, and relevant principal
-        uint16 bid;
-        if (useCheapestBond) {
-            (bid, ) = bondHelper.getCheapestBID();
-        } else {
-            bid = bondHelper.getBID(principal);
-        }
+
         // make sure "swapTarget" is approved to spend this contracts "fromToken"
         _approveToken(fromToken, swapTarget, toInvest);
         // swap fromToken -> bond principal
@@ -174,16 +166,16 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         // purchase bond
         (OHMRec, ) = IBondDepoV2(depo).deposit(
             msg.sender, // depositor
-            bid,
+            bondId,
             tokensBought,
             // bond price * slippage % + bond price
-            (IBondDepoV2(depo).bondPrice(bid) * maxBondSlippage) /
+            (IBondDepoV2(depo).bondPrice(bondId) * maxBondSlippage) /
                 1e4 +
-                IBondDepoV2(depo).bondPrice(bid),
+                IBondDepoV2(depo).bondPrice(bondId),
             affiliate
         );
         // emit zapIn
-        emit zapIn(msg.sender, principal, OHMRec, affiliate);
+        emit zapBond(msg.sender, principal, OHMRec, affiliate);
     }
 
     ////////////////////////// INTERNAL //////////////////////////
@@ -249,11 +241,6 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         for (uint256 i; i < _tokens.length; i++) {
             _tokens[i].approve(_target, type(uint256).max);
         }
-    }
-
-    /// @notice update state for Cheapest Bond Helper
-    function update_bondHelper(IBondHelper _bondHelper) external onlyOlympusDAO {
-        bondHelper = _bondHelper;
     }
 
     ////////////////////////// INTERNAL HELPERS //////////////////////////
