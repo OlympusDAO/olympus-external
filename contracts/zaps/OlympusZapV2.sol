@@ -161,19 +161,23 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
             swapTarget,
             swapData
         );
+
         // max sure bond depo is approved to spend this contracts "principal"
         _approveToken(principal, depo, tokensBought);
+
         // purchase bond
-        (OHMRec, ) = IBondDepoV2(depo).deposit(
-            msg.sender, // depositor
-            bondId,
+        (OHMRec, , ) = IBondDepoV2(depo).deposit(
+            uint256(bondId),
             tokensBought,
             // bond price * slippage % + bond price
-            (IBondDepoV2(depo).bondPrice(bondId) * maxBondSlippage) /
-                1e4 +
-                IBondDepoV2(depo).bondPrice(bondId),
+            IBondDepoV2(depo).marketPrice(bondId) * 2,
+            // (IBondDepoV2(depo).bondPrice(bondId) * maxBondSlippage) /
+            //     1e4 +
+            //     IBondDepoV2(depo).bondPrice(bondId),
+            msg.sender, // depositor
             affiliate
         );
+
         // emit zapIn
         emit zapBond(msg.sender, principal, OHMRec, affiliate);
     }
