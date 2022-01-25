@@ -248,6 +248,50 @@ describe("OlympusDAO Zap", () => {
 
         expect(vesting).to.be.gt(beforeVesting);
       });
+      it("Should create bonds with OHM-DAI using SPELL", async () => {              
+        const fromToken = SPELL;
+        const toToken = OHM_DAI;
+        const bondId = 12;
+
+        const amountIn = await exchangeAndApprove(
+          user,
+          ETH,
+          fromToken,
+          utils.parseEther("1"),
+          ohmZap.address,
+        );        
+
+        // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
+        // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
+        const { to, data } = await getZapInQuote({
+          toWhomToIssue: user.address,
+          sellToken: fromToken,
+          sellAmount: amountIn,
+          poolAddress: toToken,
+          protocol: protocol.sushiswap,
+        });                                    
+
+        const beforeVesting = (await depository.indexesFor(user.address)).length;
+
+        const maxPrice = await depository.marketPrice(bondId);              
+        
+        await ohmZap
+          .connect(user)
+          .ZapBond(
+            fromToken,
+            10,
+            toToken,
+            to,
+            data,
+            constants.AddressZero,
+            maxPrice,
+            bondId,
+          );      
+
+        const vesting = (await depository.indexesFor(user.address)).length;
+
+        expect(vesting).to.be.gt(beforeVesting);
+      });
     });
   });
 
