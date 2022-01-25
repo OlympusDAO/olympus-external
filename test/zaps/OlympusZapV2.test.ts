@@ -199,7 +199,7 @@ describe("OlympusDAO Zap", () => {
 
         const beforeVesting = (await depository.indexesFor(user.address)).length;
 
-        const maxPrice = await depository.marketPrice(12);
+        const maxPrice = await depository.marketPrice(bondId);
 
         await ohmZap
           .connect(user)
@@ -216,6 +216,33 @@ describe("OlympusDAO Zap", () => {
               value: amountIn,
             },
           );
+
+        const vesting = (await depository.indexesFor(user.address)).length;
+
+        expect(vesting).to.be.gt(beforeVesting);
+      });
+      it("Should create bonds with DAI principal using SPELL", async () => {
+        const fromToken = SPELL;
+        const toToken = DAI;
+        const bondId = 12;
+
+        const amountIn = await exchangeAndApprove(
+          user,
+          ETH,
+          fromToken,
+          utils.parseEther("5"),
+          ohmZap.address,
+        );
+
+        const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+
+        const beforeVesting = (await depository.indexesFor(user.address)).length;
+
+        const maxPrice = await depository.marketPrice(bondId);
+
+        await ohmZap
+          .connect(user)
+          .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId);
 
         const vesting = (await depository.indexesFor(user.address)).length;
 
