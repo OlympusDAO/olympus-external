@@ -134,7 +134,7 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
     /// @param swapTarget Excecution target for the zap
     /// @param swapData DEX or Zap data. Must swap to ibToken underlying address
     /// @param affiliate Affiliate address
-    /// @param maxBondSlippage Max price for a bond denominated in toToken/principal
+    /// @param maxPrice The maximum price at which to buy the bond
     /// @param bondId BondId to use to acquire bond
     /// @return OHMRec quantity of sOHM or gOHM  received (depending on toToken)
     /// or the quantity OHM vesting (if bond is true)
@@ -145,8 +145,8 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         address swapTarget,
         bytes calldata swapData,
         address affiliate,
-        uint256 maxBondSlippage, // in bips
-        uint16 bondId
+        uint256 maxPrice,
+        uint256 bondId
     ) external payable stopInEmergency returns (uint256 OHMRec) {
         // pull users fromToken
         uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
@@ -167,13 +167,9 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
 
         // purchase bond
         (OHMRec, , ) = IBondDepoV2(depo).deposit(
-            uint256(bondId),
+            bondId,
             tokensBought,
-            // bond price * slippage % + bond price
-            IBondDepoV2(depo).marketPrice(bondId) * 2,
-            // (IBondDepoV2(depo).bondPrice(bondId) * maxBondSlippage) /
-            //     1e4 +
-            //     IBondDepoV2(depo).bondPrice(bondId),
+            maxPrice,
             msg.sender, // depositor
             affiliate
         );
