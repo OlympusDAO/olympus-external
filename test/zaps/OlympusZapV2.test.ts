@@ -9,7 +9,7 @@ import address from "../../libs/constants/address";
 import { getSwapQuote } from "../../libs/quote/swap/swap";
 
 import { approveToken, getBalance } from "../../libs/token/token.helper";
-import { exchangeAndApprove } from "../../libs/exchange/exchange.helper";
+import { exchangeAndApprove, exchange } from "../../libs/exchange/exchange.helper";
 
 import { IBondDepository, OlympusV2ZapV1 } from "../../typechain";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -30,7 +30,9 @@ describe("OlympusDAO Zap", () => {
   let bondHelper: BondHelper;
 
   let deployer: SignerWithAddress;
-  let user: SignerWithAddress;
+  let user: SignerWithAddress;  
+  let user2: SignerWithAddress;  
+  let user3: SignerWithAddress;  
   let OlympusDAO: SignerWithAddress;
 
   const stakingAddress = "0xB63cac384247597756545b500253ff8E607a8020";
@@ -42,7 +44,7 @@ describe("OlympusDAO Zap", () => {
   const { OHM_LUSD_DEPO, OHM_DAI_DEPO, DAI_DEPO, ALCX_ETH_DEPO, OHM_FRAX_DEPO } = address.ohm;
 
   before(async () => {
-    [deployer, user, OlympusDAO] = await ethers.getSigners();
+    [deployer, user, OlympusDAO, user2, user3] = await ethers.getSigners();
     // impersonate zapper admin
     await network.provider.request({
       method: "hardhat_impersonateAccount",
@@ -113,6 +115,21 @@ describe("OlympusDAO Zap", () => {
         const finalBalance = await getBalance(toToken, user.address);
         expect(finalBalance).to.be.gt(initialBalance);
       });
+
+      it("should Not allow ZapIn if swap Targets not approved", async () => {
+        const fromETH = utils.parseEther("1");
+        const fromToken = OHM;
+        const toToken = sOHM;
+
+        const amountIn = await exchange(user2, ETH, fromToken, fromETH, ohmZap.address);
+        const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
+
+        const initialBalance = await getBalance(toToken, user2.address);
+        await expect( ohmZap
+          .connect(user2)
+          .ZapStake(fromToken, amountIn, toToken, 1, to, data, constants.AddressZero)
+        ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");        
+      });
     });
 
     context("to gOHM", () => {
@@ -163,7 +180,7 @@ describe("OlympusDAO Zap", () => {
           .ZapStake(fromToken, amountIn, toToken, 1, to, data, constants.AddressZero);
         const finalBalance = await getBalance(toToken, user.address);
         expect(finalBalance).to.be.gt(initialBalance);
-      });
+      });      
     });
   });
 
@@ -329,6 +346,41 @@ describe("OlympusDAO Zap", () => {
 
         expect(vesting).to.be.gt(beforeVesting);
       });
+      it("Should not allow to create bonds if swap Target not approved", async () => {
+        const fromToken = SPELL;
+        const toToken = FRAX;
+        
+         // BondId from the available bonds, currently:
+        // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
+        // calling Depository.liveMarkets()
+        // 13 => FRAX
+        // 11 => UST
+        // 12 => DAI
+        const bondId = 13;
+
+        // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
+        // This is NOT needed if ETH  is the fromToken
+        const amountIn = await exchange(
+          user3,
+          ETH,
+          fromToken,
+          utils.parseEther("5"),
+          ohmZap.address,
+        );
+
+        // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
+        // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
+        const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+
+        const beforeVesting = (await depository.indexesFor(user3.address)).length;
+
+        const maxPrice = await depository.marketPrice(bondId);
+
+        await expect( ohmZap
+          .connect(user3)
+          .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId)
+        ).to.be.revertedWith("ERC20: allowance too low");        
+      });
       // it("Should create bonds with UST principal using ETH", async () => {
       //   const fromToken = ETH;
       //   const toToken = UST;
@@ -445,7 +497,8 @@ describe("OlympusDAO Zap", () => {
 
     //   //   expect(vesting).to.be.gt(beforeVesting);
     //   // });      
-     });
+      
+    });
   });
  
   describe("Security", () => {
