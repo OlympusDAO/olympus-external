@@ -496,7 +496,7 @@ describe("OlympusDAO Zap", () => {
       after(async () => {
         await ohmZap.connect(OlympusDAO).toggleContractActive();
       });
-      it("Should pause ZapIns", async () => {
+      it("Should pause ZapStake", async () => {
         const amountIn = utils.parseEther("5");
         const fromToken = ETH;
         const toToken = UST;
@@ -512,6 +512,30 @@ describe("OlympusDAO Zap", () => {
               constants.AddressZero,
               constants.HashZero,
               constants.AddressZero,
+              {
+                value: amountIn,
+              },
+            ),
+        ).to.be.revertedWith("Paused");
+      });
+      it("Should pause ZapBond", async () => {
+        const amountIn = utils.parseEther("5");
+        const fromToken = ETH;
+        const toToken = UST;
+        const bondId = BondId.UST;
+
+        await expect(
+          ohmZap
+            .connect(user)
+            .ZapBond(
+              fromToken,
+              amountIn,
+              toToken,
+              constants.AddressZero,
+              constants.HashZero,
+              constants.AddressZero,
+              0,
+              bondId,
               {
                 value: amountIn,
               },
