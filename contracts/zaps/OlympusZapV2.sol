@@ -1,28 +1,11 @@
-// ███████╗░█████╗░██████╗░██████╗░███████╗██████╗░░░░███████╗██╗
-// ╚════██║██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗░░░██╔════╝██║
-// ░░███╔═╝███████║██████╔╝██████╔╝█████╗░░██████╔╝░░░█████╗░░██║
-// ██╔══╝░░██╔══██║██╔═══╝░██╔═══╝░██╔══╝░░██╔══██╗░░░██╔══╝░░██║
-// ███████╗██║░░██║██║░░░░░██║░░░░░███████╗██║░░██║██╗██║░░░░░██║
-// ╚══════╝╚═╝░░╚═╝╚═╝░░░░░╚═╝░░░░░╚══════╝╚═╝░░╚═╝╚═╝╚═╝░░░░░╚═╝
-// Copyright (C) 2021 zapper
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 2 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-
+/// @title Olympus V2 Zap In
 /// @author Zapper and OlympusDAO
-/// @notice This contract enters/exits OlympusDAO Ω with/to any token.
-/// Bonds can also be created on behalf of msg.sender using any input token.
+/// Copyright (C) 2021 Zapper
+/// Copyright (C) 2022 OlympusDAO
 
-// SPDX-License-Identifier: GPL-2.0
-pragma solidity ^0.8.0;
+pragma solidity 0.8.4;
 
 import "./interfaces/IBondDepoV2.sol";
 import "./interfaces/IStakingV2.sol";
@@ -30,7 +13,7 @@ import "./interfaces/IsOHMv2.sol";
 import "./interfaces/IgOHM.sol";
 import "./libraries/ZapBaseV3.sol";
 
-contract Olympus_V2_Zap_V1 is ZapBaseV3 {
+contract Olympus_V2_Zap_In is ZapBaseV3 {
     using SafeERC20 for IERC20;
 
     ////////////////////////// STORAGE //////////////////////////
@@ -49,34 +32,21 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
 
     ////////////////////////// EVENTS //////////////////////////
 
-    // Emitted when `sender` Zaps In
-    event zapIn(address sender, address token, uint256 tokensRec, address affiliate);
+    // Emitted when `sender` successfully calls ZapStake
+    event zapStake(address sender, address token, uint256 tokensRec, address referral);
 
-    // Emitted when `sender` Zaps Bond
-    event zapBond(address sender, address token, uint256 tokensRec, address affiliate);
-
-    // Emitted when `sender` Zaps Out
-    event zapOut(address sender, address token, uint256 tokensRec, address affiliate);
-
-    ////////////////////////// MODIFIERS //////////////////////////
-
-    modifier onlyOlympusDAO() {
-        require(msg.sender == olympusDAO, "Only OlympusDAO");
-        _;
-    }
+    // Emitted when `sender` successfully calls ZapBond
+    event zapBond(address sender, address token, uint256 tokensRec, address referral);
 
     ////////////////////////// CONSTRUCTION //////////////////////////
-
     constructor(
         address _olympusDAO,
         address _depo,
         address _staking,
         address _OHM,
         address _sOHM,
-        address _gOHM,
-        uint256 _goodwill,
-        uint256 _affiliateSplit
-    ) ZapBaseV3(_goodwill, _affiliateSplit) {
+        address _gOHM
+    ) ZapBaseV3(0, 0) {
         // 0x Proxy
         approvedTargets[0xDef1C0ded9bec7F1a1670819833240f027b25EfF] = true;
         // Zapper Sushiswap Zap In
@@ -96,16 +66,15 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
 
     ////////////////////////// PUBLIC //////////////////////////
 
-    /// @notice This function deposits assets into Olympus with ETH or ERC20 tokens
+    /// @notice This function acquires OHM with ETH or ERC20 tokens and stakes it for sOHM/gOHM
     /// @param fromToken The token used for entry (address(0) if ether)
-    /// @param amountIn The amount of fromToken to invest
-    /// @param toToken The token fromToken is getting converted to
-    /// @param minToToken The minimum acceptable quantity sOHM
-    /// or gOHM or principal tokens to receive. Reverts otherwise
+    /// @param amountIn The quantity of fromToken being sent
+    /// @param toToken The token fromToken is being converted to (i.e. sOHM or gOHM)
+    /// @param minToToken The minimum acceptable quantity sOHM or gOHM to receive. Reverts otherwise
     /// @param swapTarget Excecution target for the swap
-    /// @param swapData DEX or Zap data. Must swap to ibToken underlying address
-    /// @param affiliate Affiliate address
-    /// @return OHMRec quantity of sOHM or gOHM  received (depending on toToken)
+    /// @param swapData DEX swap data
+    /// @param referral The front end operator address
+    /// @return OHMRec The quantity of sOHM or gOHM received (depending on toToken)
     function ZapStake(
         address fromToken,
         uint256 amountIn,
@@ -113,43 +82,48 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         uint256 minToToken,
         address swapTarget,
         bytes calldata swapData,
-        address affiliate
-    ) external payable stopInEmergency returns (uint256 OHMRec) {
-        uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
+        address referral
+    ) external payable pausable returns (uint256 OHMRec) {
+        // pull users fromToken
+        uint256 toInvest = _pullTokens(fromToken, amountIn, referral, true);
 
         // approve "swapTarget" to spend this contracts "fromToken" if needed
         _approveToken(fromToken, swapTarget, toInvest);
+
+        // swap fromToken -> OHM
         uint256 tokensBought = _fillQuote(fromToken, OHM, toInvest, swapTarget, swapData);
 
-        OHMRec = _enterOlympus(tokensBought, toToken);
+        // stake OHM for sOHM or gOHM
+        OHMRec = _stake(tokensBought, toToken);
+
+        // Slippage check
         require(OHMRec > minToToken, "High Slippage");
-        emit zapIn(msg.sender, sOHM, OHMRec, affiliate);
+
+        emit zapStake(msg.sender, toToken, OHMRec, referral);
     }
 
     /// @notice This function acquires Olympus bonds with ETH or ERC20 tokens
     /// @param fromToken The token used for entry (address(0) if ether)
-    /// @param amountIn The amount of fromToken to invest
-    /// @param principal The token fromToken is getting converted to
-    /// ignored if useCheapestBond is true
-    /// @param swapTarget Excecution target for the zap
-    /// @param swapData DEX or Zap data. Must swap to ibToken underlying address
-    /// @param affiliate Affiliate address
+    /// @param amountIn The quantity of fromToken being sent
+    /// @param principal The token fromToken is being converted to (i.e. token or LP to bond)
+    /// @param swapTarget Excecution target for the swap or Zap
+    /// @param swapData DEX or Zap data
+    /// @param referral The front end operator address
     /// @param maxPrice The maximum price at which to buy the bond
-    /// @param bondId BondId to use to acquire bond
-    /// @return OHMRec quantity of sOHM or gOHM  received (depending on toToken)
-    /// or the quantity OHM vesting (if bond is true)
+    /// @param bondId The ID of the market
+    /// @return OHMRec The quantity of gOHM due
     function ZapBond(
         address fromToken,
         uint256 amountIn,
         address principal,
         address swapTarget,
         bytes calldata swapData,
-        address affiliate,
+        address referral,
         uint256 maxPrice,
         uint256 bondId
-    ) external payable stopInEmergency returns (uint256 OHMRec) {
+    ) external payable pausable returns (uint256 OHMRec) {
         // pull users fromToken
-        uint256 toInvest = _pullTokens(fromToken, amountIn, affiliate, true);
+        uint256 toInvest = _pullTokens(fromToken, amountIn, referral, true);
 
         // make sure "swapTarget" is approved to spend this contracts "fromToken"
         _approveToken(fromToken, swapTarget, toInvest);
@@ -162,7 +136,7 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
             swapData
         );
 
-        // max sure bond depo is approved to spend this contracts "principal"
+        // make sure bond depo is approved to spend this contracts "principal"
         _approveToken(principal, depo, tokensBought);
 
         // purchase bond
@@ -171,21 +145,23 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
             tokensBought,
             maxPrice,
             msg.sender, // depositor
-            affiliate
+            referral
         );
 
-        // emit zapIn
-        emit zapBond(msg.sender, principal, OHMRec, affiliate);
+        emit zapBond(msg.sender, principal, OHMRec, referral);
     }
 
     ////////////////////////// INTERNAL //////////////////////////
 
-    function _enterOlympus(uint256 amount, address toToken) internal returns (uint256) {
+    /// @param amount The quantity of OHM being staked
+    /// @param toToken Either sOHM or gOHM
+    /// @return OHMRec quantity of sOHM or gOHM  received (depending on toToken)
+    function _stake(uint256 amount, address toToken) internal returns (uint256) {
         uint256 claimedTokens;
+        // approve staking for OHM if needed
+        _approveToken(OHM, staking, amount);
 
         if (toToken == gOHM) {
-            // max approve staking for OHM if needed
-            _approveToken(OHM, staking, amount);
             // stake OHM -> gOHM
             IStaking(staking).stake(address(this), amount, false, false);
             claimedTokens = IStaking(staking).claim(address(this), false);
@@ -194,11 +170,7 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
 
             return claimedTokens;
         }
-
-        // max approve staking for OHM if needed
-        _approveToken(OHM, staking, amount);
         // stake OHM -> sOHM
-
         IStaking(staking).stake(address(this), amount, true, false);
         claimedTokens = IStaking(staking).claim(address(this), true);
 
@@ -207,41 +179,20 @@ contract Olympus_V2_Zap_V1 is ZapBaseV3 {
         return claimedTokens;
     }
 
-    function removeLiquidityReturn(address fromToken, uint256 fromAmount)
-        external
-        view
-        returns (uint256 ohmAmount)
-    {
-        if (fromToken == sOHM) {
-            return fromAmount;
-        } else if (fromToken == gOHM) {
-            return IsOHM(sOHM).fromG(fromAmount);
-        }
-    }
-
     ////////////////////////// OLYMPUS ONLY //////////////////////////
 
-    /// @notice update olympus dao address, which is used for access control
-    function update_OlympusDAO(address _olympusDAO) external onlyOlympusDAO {
+    /// @notice update Olympus address, which is used for access control
+    function update_OlympusDAO(address _olympusDAO) external onlyOwner {
         olympusDAO = _olympusDAO;
     }
 
     /// @notice update state for staking
-    function update_Staking(address _staking) external onlyOlympusDAO {
+    function update_Staking(address _staking) external onlyOwner {
         staking = _staking;
     }
 
     /// @notice update state for depo
-    function update_Depo(address _depo) external onlyOlympusDAO {
+    function update_Depo(address _depo) external onlyOwner {
         depo = _depo;
     }
-
-    /// @notice update max approvals for tokens to reduce user gas cost
-    function update_approvals(IERC20[] memory _tokens, address _target) external onlyOlympusDAO {
-        for (uint256 i; i < _tokens.length; i++) {
-            _tokens[i].approve(_target, type(uint256).max);
-        }
-    }
-
-    ////////////////////////// INTERNAL HELPERS //////////////////////////
 }
