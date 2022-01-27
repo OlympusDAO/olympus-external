@@ -1,6 +1,6 @@
 /* eslint-disable node/no-missing-import */
 import { network, ethers } from "hardhat";
-import { constants, BigNumber, utils, Signer } from "ethers";
+import { constants, utils } from "ethers";
 
 import { solidity } from "ethereum-waffle";
 import chai from "chai";
@@ -8,60 +8,42 @@ import chai from "chai";
 import address from "../../libs/constants/address";
 import { getSwapQuote } from "../../libs/quote/swap/swap";
 
-import { approveToken, getBalance } from "../../libs/token/token.helper";
+import { getBalance } from "../../libs/token/token.helper";
 import { exchangeAndApprove, exchange } from "../../libs/exchange/exchange.helper";
 
-import { IBondDepository, OlympusV2ZapV1 } from "../../typechain";
+import { OlympusV2ZapIn, IBondDepoV2 } from "../../typechain";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { getZapInQuote } from "../../libs/quote/zap/zap";
-import protocol from "../../libs/quote/zap/protocol";
 
-import { BondHelper } from "../../typechain";
-import { IBondDepoV2 } from "../../typechain";
+import BondId from "../../libs/constants/bondId";
 
 chai.use(solidity);
 const { expect } = chai;
 
-const OlympusZapArtifact = "Olympus_V2_Zap_V1";
-const BondHelperArtifact = "BondHelper";
+const OlympusZapArtifact = "Olympus_V2_Zap_In";
 
 describe("OlympusDAO Zap", () => {
-  let ohmZap: OlympusV2ZapV1;
-  let bondHelper: BondHelper;
+  let ohmZap: OlympusV2ZapIn;
 
   let deployer: SignerWithAddress;
-  let user: SignerWithAddress;  
-  let user2: SignerWithAddress;  
-  let user3: SignerWithAddress;  
+  let user: SignerWithAddress;
+  let user2: SignerWithAddress;
+  let user3: SignerWithAddress;
   let OlympusDAO: SignerWithAddress;
 
-  const stakingAddress = "0xB63cac384247597756545b500253ff8E607a8020";
-
   const { ETH, DAI, OHM, sOHM, gOHM, SPELL, ALCX, FRAX, UST } = address.tokens;
-  const { OHM_LUSD, OHM_DAI, ALCX_ETH } = address.sushiswap;
-  const { OHM_FRAX } = address.uniswap;
-
-  const { OHM_LUSD_DEPO, OHM_DAI_DEPO, DAI_DEPO, ALCX_ETH_DEPO, OHM_FRAX_DEPO } = address.ohm;
 
   before(async () => {
     [deployer, user, OlympusDAO, user2, user3] = await ethers.getSigners();
-    // impersonate zapper admin
-    await network.provider.request({
-      method: "hardhat_impersonateAccount",
-      params: [OlympusDAO.address],
-    });   
 
     ohmZap = await ethers.getContractFactory(OlympusZapArtifact, deployer).then(async factory => {
       return (await factory.deploy(
         OlympusDAO.address,
         address.ohm.DEPO_V2,
-        stakingAddress,
+        address.ohm.OlympusStaking,
         address.tokens.OHM,
         address.tokens.sOHM,
         address.tokens.gOHM,
-        0,
-        0,
-      )) as OlympusV2ZapV1;
+      )) as OlympusV2ZapIn;
     });
   });
 
@@ -118,17 +100,47 @@ describe("OlympusDAO Zap", () => {
 
       it("should Not allow ZapIn if swap Targets not approved", async () => {
         const fromETH = utils.parseEther("1");
+        const fromToken = ETH;
+        const toToken = sOHM;
+
+        const { to, data } = await getSwapQuote(fromToken, OHM, fromETH);
+
+        await expect(
+          ohmZap
+            .connect(user2)
+            .ZapStake(
+              fromToken,
+              fromETH,
+              toToken,
+              1,
+              constants.AddressZero,
+              data,
+              constants.AddressZero,
+              { value: fromETH },
+            ),
+        ).to.be.revertedWith("Target not Authorized");
+      });
+      it("should revert if slippage is exceeded", async () => {
+        const fromETH = utils.parseEther("1");
         const fromToken = OHM;
         const toToken = sOHM;
 
-        const amountIn = await exchange(user2, ETH, fromToken, fromETH, ohmZap.address);
+        const amountIn = await exchangeAndApprove(user2, ETH, fromToken, fromETH, ohmZap.address);
         const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
 
-        const initialBalance = await getBalance(toToken, user2.address);
-        await expect( ohmZap
-          .connect(user2)
-          .ZapStake(fromToken, amountIn, toToken, 1, to, data, constants.AddressZero)
-        ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");        
+        await expect(
+          ohmZap
+            .connect(user2)
+            .ZapStake(
+              fromToken,
+              amountIn,
+              toToken,
+              constants.MaxUint256,
+              to,
+              data,
+              constants.AddressZero,
+            ),
+        ).to.be.revertedWith("High Slippage");
       });
     });
 
@@ -180,7 +192,7 @@ describe("OlympusDAO Zap", () => {
           .ZapStake(fromToken, amountIn, toToken, 1, to, data, constants.AddressZero);
         const finalBalance = await getBalance(toToken, user.address);
         expect(finalBalance).to.be.gt(initialBalance);
-      });      
+      });
     });
   });
 
@@ -197,13 +209,7 @@ describe("OlympusDAO Zap", () => {
         const fromToken = ETH;
         const toToken = DAI;
 
-        // BondId from the available bonds:
-        // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
-        // calling Depository.liveMarkets()
-        // 13 => FRAX
-        // 11 => UST
-        // 12 => DAI
-        const bondId = 12;
+        const bondId = BondId.DAI;
 
         // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
         // This is NOT needed if ETH  is the fromToken
@@ -241,14 +247,7 @@ describe("OlympusDAO Zap", () => {
         const fromToken = SPELL;
         const toToken = DAI;
 
-        // BondId from the available bonds, currently:
-        // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
-        // calling Depository.liveMarkets()
-        // 13 => FRAX
-        // 11 => UST
-        // 12 => DAI
-        const bondId = 12;
-
+        const bondId = BondId.DAI;
 
         // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
         // This is NOT needed if ETH  is the fromToken
@@ -259,7 +258,7 @@ describe("OlympusDAO Zap", () => {
           utils.parseEther("5"),
           ohmZap.address,
         );
-        
+
         // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
         // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
         const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
@@ -279,18 +278,12 @@ describe("OlympusDAO Zap", () => {
       it("Should create bonds with FRAX principal using ETH", async () => {
         const fromToken = ETH;
         const toToken = FRAX;
-        
-         // BondId from the available bonds, currently:
-        // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
-        // calling Depository.liveMarkets()
-        // 13 => FRAX
-        // 11 => UST
-        // 12 => DAI
-        const bondId = 13;
+
+        const bondId = BondId.FRAX;
 
         // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
         // This is NOT needed if ETH  is the fromToken
-        const amountIn = utils.parseEther("5");;
+        const amountIn = utils.parseEther("5");
 
         // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
         // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
@@ -302,7 +295,17 @@ describe("OlympusDAO Zap", () => {
 
         await ohmZap
           .connect(user)
-          .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId, {value: amountIn, },);
+          .ZapBond(
+            fromToken,
+            amountIn,
+            toToken,
+            to,
+            data,
+            constants.AddressZero,
+            maxPrice,
+            bondId,
+            { value: amountIn },
+          );
 
         const vesting = (await depository.indexesFor(user.address)).length;
 
@@ -311,14 +314,8 @@ describe("OlympusDAO Zap", () => {
       it("Should create bonds with FRAX principal using SPELL", async () => {
         const fromToken = SPELL;
         const toToken = FRAX;
-        
-         // BondId from the available bonds, currently:
-        // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
-        // calling Depository.liveMarkets()
-        // 13 => FRAX
-        // 11 => UST
-        // 12 => DAI
-        const bondId = 13;
+
+        const bondId = BondId.FRAX;
 
         // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
         // This is NOT needed if ETH  is the fromToken
@@ -327,6 +324,74 @@ describe("OlympusDAO Zap", () => {
           ETH,
           fromToken,
           utils.parseEther("5"),
+          ohmZap.address,
+        );
+
+        // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
+        // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
+        const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+
+        const beforeVesting = (await depository.indexesFor(user.address)).length;
+
+        const maxPrice = await depository.marketPrice(bondId);
+
+        await ohmZap
+          .connect(user)
+          .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId);
+
+        const vesting = (await depository.indexesFor(user.address)).length;
+
+        expect(vesting).to.be.gt(beforeVesting);
+      });
+      it("Should create bonds with UST principal using ETH", async () => {
+        const fromToken = ETH;
+        const toToken = UST;
+
+        const bondId = BondId.UST;
+
+        // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
+        // This is NOT needed if ETH  is the fromToken
+        const amountIn = utils.parseEther("5");
+
+        // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
+        // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
+        const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+
+        const beforeVesting = (await depository.indexesFor(user.address)).length;
+
+        const maxPrice = await depository.marketPrice(bondId);
+
+        await ohmZap
+          .connect(user)
+          .ZapBond(
+            fromToken,
+            amountIn,
+            toToken,
+            to,
+            data,
+            constants.AddressZero,
+            maxPrice,
+            bondId,
+            { value: amountIn },
+          );
+
+        const vesting = (await depository.indexesFor(user.address)).length;
+
+        expect(vesting).to.be.gt(beforeVesting);
+      });
+      it("Should create bonds with UST principal using DAI", async () => {
+        const fromToken = DAI;
+        const toToken = UST;
+
+        const bondId = BondId.UST;
+
+        // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
+        // This is NOT needed if ETH  is the fromToken
+        const amountIn = await exchangeAndApprove(
+          user,
+          ETH,
+          fromToken,
+          utils.parseEther("1"),
           ohmZap.address,
         );
 
@@ -349,18 +414,12 @@ describe("OlympusDAO Zap", () => {
       it("Should not allow to create bonds if swap Target not approved", async () => {
         const fromToken = SPELL;
         const toToken = FRAX;
-        
-         // BondId from the available bonds, currently:
-        // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
-        // calling Depository.liveMarkets()
-        // 13 => FRAX
-        // 11 => UST
-        // 12 => DAI
-        const bondId = 13;
+
+        const bondId = BondId.FRAX;
 
         // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
         // This is NOT needed if ETH  is the fromToken
-        const amountIn = await exchange(
+        const amountIn = await exchangeAndApprove(
           user3,
           ETH,
           fromToken,
@@ -372,135 +431,63 @@ describe("OlympusDAO Zap", () => {
         // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
         const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
 
-        const beforeVesting = (await depository.indexesFor(user3.address)).length;
-
         const maxPrice = await depository.marketPrice(bondId);
 
-        await expect( ohmZap
-          .connect(user3)
-          .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId)
-        ).to.be.revertedWith("ERC20: allowance too low");        
+        await expect(
+          ohmZap
+            .connect(user3)
+            .ZapBond(
+              fromToken,
+              amountIn,
+              toToken,
+              constants.AddressZero,
+              data,
+              constants.AddressZero,
+              maxPrice,
+              bondId,
+            ),
+        ).to.be.revertedWith("Target not Authorized");
       });
-      // it("Should create bonds with UST principal using ETH", async () => {
-      //   const fromToken = ETH;
-      //   const toToken = UST;
-        
-      //    // BondId from the available bonds, currently:
-      //   // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
-      //   // calling Depository.liveMarkets()
-      //   // 13 => FRAX
-      //   // 11 => UST
-      //   // 12 => DAI
-      //   const bondId = 11;
+      it("should revert if slippage is exceeded", async () => {
+        const fromToken = SPELL;
+        const toToken = FRAX;
 
-      //   // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
-      //   // This is NOT needed if ETH  is the fromToken
-      //   const amountIn = utils.parseEther("5");;
+        const bondId = BondId.FRAX;
 
-      //   // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
-      //   // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
-      //   const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+        // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
+        // This is NOT needed if ETH  is the fromToken
+        const amountIn = await exchangeAndApprove(
+          user3,
+          ETH,
+          fromToken,
+          utils.parseEther("5"),
+          ohmZap.address,
+        );
 
-      //   const beforeVesting = (await depository.indexesFor(user.address)).length;
+        // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
+        // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
+        const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
 
-      //   const maxPrice = await depository.marketPrice(bondId);
+        const maxPrice = 0;
 
-      //   await ohmZap
-      //     .connect(user)
-      //     .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId, {value: amountIn, },);
-
-      //   const vesting = (await depository.indexesFor(user.address)).length;
-
-      //   expect(vesting).to.be.gt(beforeVesting);
-      // });
-      // it("Should create bonds with UST principal using DAI", async () => {
-      //   const fromToken = DAI;
-      //   const toToken = UST;
-        
-      //    // BondId from the available bonds, currently:
-      //   // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
-      //   // calling Depository.liveMarkets()
-      //   // 13 => FRAX
-      //   // 11 => UST
-      //   // 12 => DAI
-      //   const bondId = 11;
-
-      //   // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
-      //   // This is NOT needed if ETH  is the fromToken
-      //   const amountIn = await exchangeAndApprove(
-      //     user,
-      //     ETH,
-      //     fromToken,
-      //     utils.parseEther("1"),
-      //     ohmZap.address,
-      //   );
-
-      //   // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
-      //   // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
-      //   const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
-
-      //   const beforeVesting = (await depository.indexesFor(user.address)).length;
-
-      //   const maxPrice = await depository.marketPrice(bondId);
-
-      //   await ohmZap
-      //     .connect(user)
-      //     .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId);
-
-      //   const vesting = (await depository.indexesFor(user.address)).length;
-
-      //   expect(vesting).to.be.gt(beforeVesting);
-      // });
-
-    //   it("Should create bonds with OHM-DAI LP principal using DAI", async () => {
-    //     const fromToken = DAI;
-    //     const toToken = OHM_DAI;
-        
-    //      // BondId from the available bonds, currently:
-    //     // Currently the bondIds avaialable can be check directly from the page https://app.olympusdao.finance/#/bonds by clicking on any bond or by
-    //     // calling Depository.liveMarkets()
-    //     // 13 => FRAX
-    //     // 11 => UST
-    //     // 12 => DAI
-    //     // OHM_DAI principal currently disabled 
-    //     // const bondId = 5;
-
-    //     // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
-    //     // This is NOT needed if ETH  is the fromToken
-    //     // const amountIn = await exchangeAndApprove(
-    //     //   user,
-    //     //   ETH,
-    //     //   fromToken,
-    //     //   utils.parseEther("5"),
-    //     //   ohmZap.address,
-    //     // );
-
-    //     // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
-    //     // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
-    //     //const { to, data } = await getZapInQuote({
-    //       //     toWhomToIssue: user.address,
-    //       //     sellToken: fromToken,
-    //       //     sellAmount: amountIn,
-    //       //     poolAddress: toToken,
-    //       //     protocol: protocol.uniswap,
-    //       //   });                      
-
-    //   //   const beforeVesting = (await depository.indexesFor(user.address)).length;
-
-    //   //   const maxPrice = await depository.marketPrice(bondId);
-
-    //   //   await ohmZap
-    //   //     .connect(user)
-    //   //     .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId);
-
-    //   //   const vesting = (await depository.indexesFor(user.address)).length;
-
-    //   //   expect(vesting).to.be.gt(beforeVesting);
-    //   // });      
-      
+        await expect(
+          ohmZap
+            .connect(user3)
+            .ZapBond(
+              fromToken,
+              amountIn,
+              toToken,
+              to,
+              data,
+              constants.AddressZero,
+              maxPrice,
+              bondId,
+            ),
+        ).to.be.revertedWith("Depository: more than max price");
+      });
     });
   });
- 
+
   describe("Security", () => {
     context("Pausable", () => {
       before(async () => {
@@ -512,7 +499,7 @@ describe("OlympusDAO Zap", () => {
       it("Should pause ZapIns", async () => {
         const amountIn = utils.parseEther("5");
         const fromToken = ETH;
-        const toToken = ALCX_ETH;
+        const toToken = UST;
 
         await expect(
           ohmZap
@@ -543,23 +530,18 @@ describe("OlympusDAO Zap", () => {
     context("onlyOlympusDAO", () => {
       it("Should only allow OlympusDAO to update depos", async () => {
         await expect(ohmZap.connect(user).update_Depo(constants.AddressZero)).to.be.revertedWith(
-          "Only OlympusDAO",
+          "Ownable: caller is not the owner",
         );
       });
       it("Should only allow OlympusDAO to update staking", async () => {
         await expect(ohmZap.connect(user).update_Staking(ALCX)).to.be.revertedWith(
-          "Only OlympusDAO",
+          "Ownable: caller is not the owner",
         );
       });
       it("Should only allow OlympusDAO to update OlympusDao address", async () => {
         await expect(
           ohmZap.connect(user).update_OlympusDAO(constants.AddressZero),
-        ).to.be.revertedWith("Only OlympusDAO");
-      });
-      it("Should only allow OlympusDAO to update approvals", async () => {
-        await expect(
-          ohmZap.connect(user).update_approvals([], constants.AddressZero),
-        ).to.be.revertedWith("Only OlympusDAO");
+        ).to.be.revertedWith("Ownable: caller is not the owner");
       });
     });
   });
