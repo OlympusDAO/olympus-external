@@ -110,10 +110,7 @@ abstract contract ZapBaseV3 is Ownable {
 
     address internal constant ETHAddress = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    address internal constant ZapperAdmin = 0x3CE37278de6388532C3949ce4e886F365B14fB56;
-
-    // circuit breaker modifiers
-    modifier stopInEmergency() {
+    modifier pausable() {
         require(!stopped, "Paused");
         _;
     }
