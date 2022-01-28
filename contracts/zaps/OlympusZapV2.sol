@@ -163,16 +163,14 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
 
         if (toToken == gOHM) {
             // stake OHM -> gOHM
-            IStaking(staking).stake(address(this), amount, false, false);
-            claimedTokens = IStaking(staking).claim(address(this), false);
+            claimedTokens = IStaking(staking).stake(address(this), amount, false, true);
 
             IERC20(toToken).safeTransfer(msg.sender, claimedTokens);
 
             return claimedTokens;
         }
         // stake OHM -> sOHM
-        IStaking(staking).stake(address(this), amount, true, false);
-        claimedTokens = IStaking(staking).claim(address(this), true);
+        claimedTokens = IStaking(staking).stake(address(this), amount, true, true);
 
         IERC20(toToken).safeTransfer(msg.sender, claimedTokens);
 
