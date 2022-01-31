@@ -37,7 +37,6 @@ describe("OlympusDAO Zap", () => {
 
     ohmZap = await ethers.getContractFactory(OlympusZapArtifact, deployer).then(async factory => {
       return (await factory.deploy(
-        OlympusDAO.address,
         address.ohm.DEPO_V2,
         address.ohm.OlympusStaking,
         address.tokens.OHM,
@@ -45,6 +44,8 @@ describe("OlympusDAO Zap", () => {
         address.tokens.gOHM,
       )) as OlympusV2ZapIn;
     });
+
+    await ohmZap.transferOwnership(OlympusDAO.address);
   });
 
   describe("ZapStake", () => {
@@ -488,7 +489,7 @@ describe("OlympusDAO Zap", () => {
     });
   });
 
-  describe("Security", () => {
+  describe.only("Security", () => {
     context("Pausable", () => {
       before(async () => {
         await ohmZap.connect(OlympusDAO).toggleContractActive();
@@ -561,11 +562,6 @@ describe("OlympusDAO Zap", () => {
         await expect(ohmZap.connect(user).update_Staking(ALCX)).to.be.revertedWith(
           "Ownable: caller is not the owner",
         );
-      });
-      it("Should only allow OlympusDAO to update OlympusDao address", async () => {
-        await expect(
-          ohmZap.connect(user).update_OlympusDAO(constants.AddressZero),
-        ).to.be.revertedWith("Ownable: caller is not the owner");
       });
     });
   });

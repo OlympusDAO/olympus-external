@@ -18,8 +18,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
 
     ////////////////////////// STORAGE //////////////////////////
 
-    address public olympusDAO;
-
     address public depo;
 
     address public staking;
@@ -40,7 +38,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
 
     ////////////////////////// CONSTRUCTION //////////////////////////
     constructor(
-        address _olympusDAO,
         address _depo,
         address _staking,
         address _OHM,
@@ -54,14 +51,11 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         // Zapper Uniswap V2 Zap In
         approvedTargets[0x6D9893fa101CD2b1F8D1A12DE3189ff7b80FdC10] = true;
 
-        olympusDAO = _olympusDAO;
         depo = _depo;
         staking = _staking;
         OHM = _OHM;
         sOHM = _sOHM;
         gOHM = _gOHM;
-
-        transferOwnership(_olympusDAO);
     }
 
     ////////////////////////// PUBLIC //////////////////////////
@@ -178,12 +172,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
     }
 
     ////////////////////////// OLYMPUS ONLY //////////////////////////
-
-    /// @notice update Olympus address, which is used for access control
-    function update_OlympusDAO(address _olympusDAO) external onlyOwner {
-        olympusDAO = _olympusDAO;
-    }
-
     /// @notice update state for staking
     function update_Staking(address _staking) external onlyOwner {
         staking = _staking;
