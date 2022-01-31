@@ -489,7 +489,7 @@ describe("OlympusDAO Zap", () => {
     });
   });
 
-  describe.only("Security", () => {
+  describe("Security", () => {
     context("Pausable", () => {
       before(async () => {
         await ohmZap.connect(OlympusDAO).toggleContractActive();
