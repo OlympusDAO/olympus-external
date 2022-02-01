@@ -5,7 +5,12 @@ import "./IStaking.sol";
 
 interface IOlympusZap {
     function update_Staking(IStaking _staking) external;
+
     function update_sOHM(address _sOHM) external;
+
     function update_wsOHM(address _wsOHM) external;
+
+    function update_gOHM(address _gOHM) external;
+
     function update_BondDepository(address principal, address depository) external;
 }
