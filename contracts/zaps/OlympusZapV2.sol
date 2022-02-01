@@ -2,6 +2,7 @@
 
 /// @title Olympus V2 Zap In
 /// @author Zapper, Cryptonomik, Dionysus
+/// Review by: ZayenX
 /// Copyright (C) 2021 Zapper
 /// Copyright (C) 2022 OlympusDAO
 
@@ -46,11 +47,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
     ) ZapBaseV3(0, 0) {
         // 0x Proxy
         approvedTargets[0xDef1C0ded9bec7F1a1670819833240f027b25EfF] = true;
-        // Zapper Sushiswap Zap In
-        approvedTargets[0x5abfbE56553a5d794330EACCF556Ca1d2a55647C] = true;
-        // Zapper Uniswap V2 Zap In
-        approvedTargets[0x6D9893fa101CD2b1F8D1A12DE3189ff7b80FdC10] = true;
-
         depo = _depo;
         staking = _staking;
         OHM = _OHM;
