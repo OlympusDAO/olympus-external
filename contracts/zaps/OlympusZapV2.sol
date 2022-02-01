@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /// @title Olympus V2 Zap In
-/// @author Zapper and OlympusDAO
+/// @author Zapper, Cryptonomik, Dionysus
 /// Copyright (C) 2021 Zapper
 /// Copyright (C) 2022 OlympusDAO
 
