@@ -32,7 +32,7 @@ describe("OlympusDAO Zap", () => {
 
   const { ETH, DAI, OHM, sOHM, gOHM, SPELL, ALCX, FRAX, UST } = address.tokens;
 
-  before(async () => {
+  beforeEach(async () => {
     [deployer, user, OlympusDAO, user2, user3] = await ethers.getSigners();
 
     ohmZap = await ethers.getContractFactory(OlympusZapArtifact, deployer).then(async factory => {
@@ -45,6 +45,25 @@ describe("OlympusDAO Zap", () => {
         address.tokens.gOHM,
       )) as OlympusV2ZapIn;
     });
+  });
+
+  describe("Deployment", function() {
+    
+    it("Should transfer ownership", async function() {
+      
+      //Contract deployment expect to transfer Ownership to the OlympusDao address set as paramter for deployment
+      expect(await ohmZap.owner()).to.equal(OlympusDAO.address);
+    });
+
+    it("Should save deployment parameters", async function() {
+      expect(await ohmZap.olympusDAO()).to.equal(OlympusDAO.address);
+      expect(await ohmZap.depo()).to.equal(address.ohm.DEPO_V2);
+      expect(await ohmZap.staking()).to.equal(address.ohm.OlympusStaking);
+      expect(await ohmZap.OHM()).to.equal(address.tokens.OHM);
+      expect(await ohmZap.sOHM()).to.equal(address.tokens.sOHM);
+      expect(await ohmZap.gOHM()).to.equal(address.tokens.gOHM);
+    });
+
   });
 
   describe("ZapStake", () => {
