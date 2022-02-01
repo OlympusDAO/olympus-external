@@ -7,8 +7,11 @@ import "@typechain/hardhat";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "hardhat-tracer";
+import "hardhat-deploy";
 
 dotenv.config();
+
+const DEPLOYER_ACCOUNT = 2; // Uses account 3 on all networks
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -23,11 +26,17 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
-const config: HardhatUserConfig = {  
+const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
         version: "0.8.4",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000,
+          },
+        },
       },
       {
         version: "0.7.5",
@@ -35,7 +44,9 @@ const config: HardhatUserConfig = {
       },
     ],
   },
-  
+  namedAccounts: {
+    deployer: DEPLOYER_ACCOUNT,
+  },
   networks: {
     hardhat: {
       forking: {
@@ -44,7 +55,9 @@ const config: HardhatUserConfig = {
     },
     mainnet: {
       url: process.env.MAINNET_URL || "",
-      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      accounts: {
+        mnemonic: process.env.PRIVATE_KEY !== undefined ? process.env.PRIVATE_KEY : "",
+      },
     },
   },
   gasReporter: {
