@@ -7,9 +7,13 @@
 
 /* eslint-disable no-unused-vars */
 enum BondId {
-  UST = 11,
-  DAI = 12,
-  FRAX = 13,
+  UST_11 = 11,
+  DAI_12 = 12,
+  FRAX_13 = 13,
+  FRAX_14 = 14,
+  UST_15 = 15,
+  DAI_16 = 16,
+
 }
 
 export default BondId;
