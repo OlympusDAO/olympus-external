@@ -142,6 +142,20 @@ describe("OlympusDAO Zap", () => {
               constants.AddressZero,
             ),
         ).to.be.revertedWith("High Slippage");
+      });      
+      it("should emit zapStake Event", async () => {
+        const fromETH = utils.parseEther("1");
+        const fromToken = OHM;
+        const toToken = sOHM;
+
+        const amountIn = await exchangeAndApprove(user, ETH, fromToken, fromETH, ohmZap.address);
+        const { to, data } = await getSwapQuote(fromToken, OHM, amountIn);
+
+        const initialBalance = await getBalance(toToken, user.address);
+        
+        expect(await ohmZap
+          .connect(user)
+          .ZapStake(fromToken, amountIn, toToken, 1, to, data, constants.AddressZero)).to.emit(ohmZap, "zapStake");
       });
     });
 
@@ -193,8 +207,8 @@ describe("OlympusDAO Zap", () => {
           .ZapStake(fromToken, amountIn, toToken, 1, to, data, constants.AddressZero);
         const finalBalance = await getBalance(toToken, user.address);
         expect(finalBalance).to.be.gt(initialBalance);
-      });
-    });
+      });      
+    });    
   });
 
   describe("ZapBond", () => {
@@ -690,7 +704,34 @@ describe("OlympusDAO Zap", () => {
             ),
         ).to.be.revertedWith("Depository: more than max price");
       });
-      
+      it("should emit zapBond Event", async () => {
+        const fromToken = SPELL;
+        const toToken = DAI;
+
+        const bondId = BondId.DAI_16;
+
+        // Convert from Eth to the token that will be used as deposit for the bond (fromTOken)
+        // This is NOT needed if ETH  is the fromToken
+        const amountIn = await exchangeAndApprove(
+          user,
+          ETH,
+          fromToken,
+          utils.parseEther("5"),
+          ohmZap.address,
+        );
+
+        // getZapInQuote returns an encoded sushiswap Zap in order to get the OHM-DAI LP.
+        // This is only needed if the principal is an LP, otherwise getSwapQuote can be used instead
+        const { to, data } = await getSwapQuote(fromToken, toToken, amountIn);
+
+        const beforeVesting = (await depository.indexesFor(user.address)).length;
+
+        const maxPrice = await depository.marketPrice(bondId);        
+
+        expect(await ohmZap
+          .connect(user)
+          .ZapBond(fromToken, amountIn, toToken, to, data, constants.AddressZero, maxPrice, bondId)).to.emit(ohmZap, "zapBond");
+      });
     });
   });
 
