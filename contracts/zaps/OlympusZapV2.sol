@@ -77,9 +77,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         // pull users fromToken
         uint256 toInvest = _pullTokens(fromToken, amountIn, referral, true);
 
-        // approve "swapTarget" to spend this contracts "fromToken" if needed
-        //_approveToken(fromToken, swapTarget, toInvest);
-
         // swap fromToken -> OHM
         uint256 tokensBought = _fillQuote(fromToken, OHM, toInvest, swapTarget, swapData);
 
@@ -115,8 +112,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         // pull users fromToken
         uint256 toInvest = _pullTokens(fromToken, amountIn, referral, true);
 
-        // make sure "swapTarget" is approved to spend this contracts "fromToken"
-        //_approveToken(fromToken, swapTarget, toInvest);
         // swap fromToken -> bond principal
         uint256 tokensBought = _fillQuote(
             fromToken,
