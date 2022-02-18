@@ -93,16 +93,6 @@ abstract contract ZapBaseV3 is Ownable {
 
     address private constant wethTokenAddress = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
-    // if true, goodwill is not deducted
-    mapping(address => bool) public feeWhitelist;
-
-    uint256 public goodwill;
-    // % share of goodwill (0-100 %)
-    uint256 affiliateSplit;
-    // restrict affiliates
-    mapping(address => bool) public affiliates;
-    // affiliate => token => amount
-    mapping(address => mapping(address => uint256)) public affiliateBalance;
     // token => amount
     mapping(address => uint256) public totalAffiliateBalance;
     // swapTarget => approval status
@@ -115,10 +105,7 @@ abstract contract ZapBaseV3 is Ownable {
         _;
     }
 
-    constructor(uint256 _goodwill, uint256 _affiliateSplit) {
-        goodwill = _goodwill;
-        affiliateSplit = _affiliateSplit;
-    }
+    constructor() {}
 
     /**
     @dev Transfers tokens (including ETH) from msg.sender to this contract
@@ -126,44 +113,16 @@ abstract contract ZapBaseV3 is Ownable {
     @param token The ERC20 token to transfer to this contract (0 address if ETH)
     @return Quantity of tokens transferred to this contract
      */
-    function _pullTokens(
-        address token,
-        uint256 amount,
-        address affiliate,
-        bool enableGoodwill
-    ) internal virtual returns (uint256) {
-        uint256 totalGoodwillPortion;
-
+    function _pullTokens(address token, uint256 amount) internal virtual returns (uint256) {
         if (token == address(0)) {
             require(msg.value > 0, "No ETH sent");
 
-            totalGoodwillPortion = _subtractGoodwill(
-                ETHAddress,
-                msg.value,
-                affiliate,
-                enableGoodwill
-            );
-
-            return msg.value - totalGoodwillPortion;
+            return msg.value;
         }
 
         require(amount > 0, "Invalid token amount");
         require(msg.value == 0, "ETH sent with token");
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-
-        totalGoodwillPortion = _subtractGoodwill(token, amount, affiliate, enableGoodwill);
-
-        return amount - totalGoodwillPortion;
-    }
-
-    /**
-    @dev Transfers tokens from msg.sender to this contract
-    @dev For use with Zap Outs (does not transfer ETH)
-    @param token The ERC20 token to transfer to this contract
-    @return Quantity of tokens transferred to this contract
-     */
-    function _pullTokens(address token, uint256 amount) internal virtual returns (uint256) {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         return amount;
@@ -260,43 +219,6 @@ abstract contract ZapBaseV3 is Ownable {
         IERC20(token).safeApprove(spender, amount);
     }
 
-    /**
-    @notice Set address to true to bypass fees when calling this contract
-    @param zapAddress The Zap caller which is allowed to bypass fees (if > 0)
-    @param status The whitelisted status (true if whitelisted)
-     */
-    function set_feeWhitelist(address zapAddress, bool status) external onlyOwner {
-        feeWhitelist[zapAddress] = status;
-    }
-
-    /** 
-    @notice Sets a goodwill amount
-    @param _new_goodwill The new goodwill amount between 0-1%
-     */
-    function set_new_goodwill(uint256 _new_goodwill) public onlyOwner {
-        require(_new_goodwill >= 0 && _new_goodwill <= 100, "GoodWill Value not allowed");
-        goodwill = _new_goodwill;
-    }
-
-    /** 
-    @notice Sets the percentage to split the goodwill by to distribute
-    * to affiliates
-    @param _new_affiliateSplit The new affiliate split between 0-1%
-     */
-    function set_new_affiliateSplit(uint256 _new_affiliateSplit) external onlyOwner {
-        require(_new_affiliateSplit <= 100, "Affiliate Split Value not allowed");
-        affiliateSplit = _new_affiliateSplit;
-    }
-
-    /** 
-    @notice Adds or removes an affiliate
-    @param _affiliate The  affiliate's address
-    @param _status The affiliate's approval status
-     */
-    function set_affiliate(address _affiliate, bool _status) external onlyOwner {
-        affiliates[_affiliate] = _status;
-    }
-
     /** 
     @notice Withdraws goodwill share, retaining affilliate share
     @param tokens An array of the tokens to withdraw (0xeee address if ETH)
@@ -316,25 +238,6 @@ abstract contract ZapBaseV3 is Ownable {
         }
     }
 
-    /** 
-    @notice Withdraws the affilliate share, retaining goodwill share
-    @param tokens An array of the tokens to withdraw (0xeee address if ETH)
-     */
-    function affilliateWithdraw(address[] calldata tokens) external {
-        uint256 tokenBal;
-        for (uint256 i = 0; i < tokens.length; i++) {
-            tokenBal = affiliateBalance[msg.sender][tokens[i]];
-            affiliateBalance[msg.sender][tokens[i]] = 0;
-            totalAffiliateBalance[tokens[i]] = totalAffiliateBalance[tokens[i]] - tokenBal;
-
-            if (tokens[i] == ETHAddress) {
-                Address.sendValue(payable(msg.sender), tokenBal);
-            } else {
-                IERC20(tokens[i]).safeTransfer(msg.sender, tokenBal);
-            }
-        }
-    }
-
     /**
     @dev Adds or removes an approved swapTarget
     * swapTargets should be Zaps and must not be tokens!
@@ -348,37 +251,6 @@ abstract contract ZapBaseV3 is Ownable {
 
         for (uint256 i = 0; i < targets.length; i++) {
             approvedTargets[targets[i]] = isApproved[i];
-        }
-    }
-
-    /** 
-    @dev Subtracts the goodwill amount from the `amount` param
-    @param token The ERC20 token being sent (0 address if ETH)
-    @param amount The quantity of the token being sent
-    @param affiliate The  affiliate's address
-    @param enableGoodwill True if bypassing goodwill, false otherwise
-    @return totalGoodwillPortion The quantity of `token` that should be
-    * subtracted from `amount`
-     */
-    function _subtractGoodwill(
-        address token,
-        uint256 amount,
-        address affiliate,
-        bool enableGoodwill
-    ) internal returns (uint256 totalGoodwillPortion) {
-        bool whitelisted = feeWhitelist[msg.sender];
-        if (goodwill > 0 && enableGoodwill && !whitelisted) {
-            totalGoodwillPortion = (amount * goodwill) / 10000;
-
-            if (affiliates[affiliate]) {
-                if (token == address(0)) {
-                    token = ETHAddress;
-                }
-
-                uint256 affiliatePortion = (totalGoodwillPortion * affiliateSplit) / 100;
-                affiliateBalance[affiliate][token] += affiliatePortion;
-                totalAffiliateBalance[token] += affiliatePortion;
-            }
         }
     }
 
