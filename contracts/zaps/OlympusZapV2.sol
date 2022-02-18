@@ -32,10 +32,10 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
     ////////////////////////// EVENTS //////////////////////////
 
     // Emitted when `sender` successfully calls ZapStake
-    event zapStake(address sender, address token, uint256 tokensRec, address referral);
+    event zapStake(address sender, address token, uint256 tokensRec);
 
     // Emitted when `sender` successfully calls ZapBond
-    event zapBond(address sender, address token, uint256 tokensRec, address referral);
+    event zapBond(address sender, address token, uint256 tokensRec);
 
     ////////////////////////// CONSTRUCTION //////////////////////////
     constructor(
@@ -44,7 +44,7 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         address _OHM,
         address _sOHM,
         address _gOHM
-    ) ZapBaseV3(0, 0) {
+    ) ZapBaseV3() {
         // 0x Proxy
         approvedTargets[0xDef1C0ded9bec7F1a1670819833240f027b25EfF] = true;
         depo = _depo;
@@ -63,7 +63,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
     /// @param minToToken The minimum acceptable quantity sOHM or gOHM to receive. Reverts otherwise
     /// @param swapTarget Excecution target for the swap
     /// @param swapData DEX swap data
-    /// @param referral The front end operator address
     /// @return OHMRec The quantity of sOHM or gOHM received (depending on toToken)
     function ZapStake(
         address fromToken,
@@ -71,11 +70,10 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         address toToken,
         uint256 minToToken,
         address swapTarget,
-        bytes calldata swapData,
-        address referral
+        bytes calldata swapData
     ) external payable pausable returns (uint256 OHMRec) {
         // pull users fromToken
-        uint256 toInvest = _pullTokens(fromToken, amountIn, referral, true);
+        uint256 toInvest = _pullTokens(fromToken, amountIn);
 
         // swap fromToken -> OHM
         uint256 tokensBought = _fillQuote(fromToken, OHM, toInvest, swapTarget, swapData);
@@ -86,7 +84,7 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         // Slippage check
         require(OHMRec > minToToken, "High Slippage");
 
-        emit zapStake(msg.sender, toToken, OHMRec, referral);
+        emit zapStake(msg.sender, toToken, OHMRec);
     }
 
     /// @notice This function acquires Olympus bonds with ETH or ERC20 tokens
@@ -95,7 +93,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
     /// @param principal The token fromToken is being converted to (i.e. token or LP to bond)
     /// @param swapTarget Excecution target for the swap or Zap
     /// @param swapData DEX or Zap data
-    /// @param referral The front end operator address
     /// @param maxPrice The maximum price at which to buy the bond
     /// @param bondId The ID of the market
     /// @return OHMRec The quantity of gOHM due
@@ -105,12 +102,11 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         address principal,
         address swapTarget,
         bytes calldata swapData,
-        address referral,
         uint256 maxPrice,
         uint256 bondId
     ) external payable pausable returns (uint256 OHMRec) {
         // pull users fromToken
-        uint256 toInvest = _pullTokens(fromToken, amountIn, referral, true);
+        uint256 toInvest = _pullTokens(fromToken, amountIn);
 
         // swap fromToken -> bond principal
         uint256 tokensBought = _fillQuote(
@@ -130,10 +126,10 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
             tokensBought,
             maxPrice,
             msg.sender, // depositor
-            referral
+            msg.sender
         );
 
-        emit zapBond(msg.sender, principal, OHMRec, referral);
+        emit zapBond(msg.sender, principal, OHMRec);
     }
 
     ////////////////////////// INTERNAL //////////////////////////
