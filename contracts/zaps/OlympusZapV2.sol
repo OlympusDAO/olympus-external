@@ -32,10 +32,10 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
     ////////////////////////// EVENTS //////////////////////////
 
     // Emitted when `sender` successfully calls ZapStake
-    event zapStake(address sender, address token, uint256 tokensRec, address referral);
+    event zapStake(address sender, address token, uint256 tokensRec);
 
     // Emitted when `sender` successfully calls ZapBond
-    event zapBond(address sender, address token, uint256 tokensRec, address referral);
+    event zapBond(address sender, address token, uint256 tokensRec);
 
     ////////////////////////// CONSTRUCTION //////////////////////////
     constructor(
@@ -70,8 +70,7 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         address toToken,
         uint256 minToToken,
         address swapTarget,
-        bytes calldata swapData,
-        address referral
+        bytes calldata swapData
     ) external payable pausable returns (uint256 OHMRec) {
         // pull users fromToken
         uint256 toInvest = _pullTokens(fromToken, amountIn);
@@ -85,7 +84,7 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         // Slippage check
         require(OHMRec > minToToken, "High Slippage");
 
-        emit zapStake(msg.sender, toToken, OHMRec, referral);
+        emit zapStake(msg.sender, toToken, OHMRec);
     }
 
     /// @notice This function acquires Olympus bonds with ETH or ERC20 tokens
@@ -103,7 +102,6 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
         address principal,
         address swapTarget,
         bytes calldata swapData,
-        address referral,
         uint256 maxPrice,
         uint256 bondId
     ) external payable pausable returns (uint256 OHMRec) {
@@ -128,10 +126,10 @@ contract Olympus_V2_Zap_In is ZapBaseV3 {
             tokensBought,
             maxPrice,
             msg.sender, // depositor
-            referral
+            msg.sender
         );
 
-        emit zapBond(msg.sender, principal, OHMRec, referral);
+        emit zapBond(msg.sender, principal, OHMRec);
     }
 
     ////////////////////////// INTERNAL //////////////////////////

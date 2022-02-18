@@ -13,6 +13,8 @@ enum BondId {
   FRAX_14 = 14,
   UST_15 = 15,
   DAI_16 = 16,
+  FRAX_18 = 18,
+  DAI_20 = 20
 
 }
 
